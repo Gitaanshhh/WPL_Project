@@ -1,1 +1,10 @@
+#Venv
 backend/venv
+
+#Py cache
+__pycache__/
+*.pyc
+
+# Django
+db.sqlite3
+.env
