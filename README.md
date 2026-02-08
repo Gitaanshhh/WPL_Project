@@ -76,12 +76,14 @@ python manage.py migrate
 # start development server
 python manage.py runserver
 ```
-HOW TO RUN frontend 
-Go to: 
+
+
+##HOW TO RUN frontend 
+
 cd habit-tracker/frontend/src
 python -m http.server 5500
 
-Open on your browser:
+Frontend will be available at:
 
 http://localhost:5500/index.html
 
