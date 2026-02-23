@@ -1,228 +1,422 @@
-# HabitTracker
+# AcademiaHub | Scholar | ..
 
-HabitTracker is a full-stack habit and productivity tracking application.
-The project starts with a small frontend-only prototype (for UI/UX validation and flow understanding) and is then converted into a complete Django-based system with authentication, persistence, and analytics.
-
----
-
-## Core Features
-
-* **Habits**
-
-  * Create habits with flexible frequency (daily / weekly / monthly)
-  * Track completions and streaks
-
-* **Todos**
-
-  * Tasks with deadlines
-  * Daily, weekly, or monthly recurrence
-
-* **Analytics**
-
-  * Visual insights into habits and task completion
-  * Streaks, consistency, and trends
-
-* **Path / Roadmap**
-
-  * AI-generated roadmaps for goals (e.g., DSA)
-  * Multiple chats per goal
-  * Clickable checkpoints
-
-* **Goals & Gamification**
-
-  * Achievement-based goals (e.g., complete a habit 5 times in a row)
-  * Points system and leaderboard
-
-* **Home Dashboard**
-
-  * Daily habit check-ins
-  * Today’s tasks
-  * Quick progress snapshot
-
-* **Mobile Web App**
-
-  * Installable PWA
-  * Notifications and cross-device sync (backend phase)
+An academic social platform that combines the best of Reddit's topic-based discussions, LinkedIn's professional profiles, and peer-regulated content quality. Built for scholars to share knowledge, connect, and maintain academic rigor.
 
 ---
 
-## Backend Setup (Local Development)
+## Basic Features
 
-### Prerequisites
+### User Management
+* Signup / Login (JWT authentication)
+* LinkedIn-style profile:
+  * Name, bio
+  * Institution
+  * Academic interests (topics)
+* User roles: `user`, `admin` and `dev`
 
+### Content System
+* **Topics & Subtopics** – Hierarchical tree structure (like subreddits)
+* **Blog Posts** (text only for MVP):
+  * Title
+  * Markdown content
+  * References (required list of URLs)
+* Upvote / Downvote system
+
+### Moderation
+* **User reporting** – Report posts as non-academic or inaccurate
+* **Admin capabilities:**
+  * Delete post
+  * Warn user
+  * Ban user
+  * Ignore report
+
+### Feed
+* Reddit-like feed with sorting:
+  * Hot (trending)
+  * New (chronological)
+
+**Not in MVP:** DMs, follows, notifications, AI moderation, videos, images
+
+---
+
+## Two-Week Development Plan
+
+### Backend Development (Week 1: Foundations)
+
+**Day 1: Project Setup**
+- FastAPI setup
+- PostgreSQL database
+- SQLAlchemy + Alembic migrations
+- JWT authentication
+- User model + roles
+
+**Day 2: Profiles & Topics**
+- Profile model (name, bio, institution)
+- Topic & subtopic models (tree structure)
+- Topic CRUD endpoints (admin only)
+
+**Day 3: Content Creation**
+- Post model with markdown support
+- Create / edit / delete post endpoints
+- Reference model and validation
+
+**Day 4: Engagement**
+- Voting system (upvote/downvote)
+- Feed endpoints with sorting:
+  - `/posts?sort=new`
+  - `/posts?sort=hot`
+
+**Day 5: Moderation System**
+- Report model
+- Admin action endpoints:
+  - Warn user
+  - Ban user
+  - Delete post
+  - Ignore report
+
+### Backend Development (Week 2: Hardening)
+
+**Day 6: Security & Permissions**
+- Permission guards
+- Soft deletes
+- Rate limiting (basic)
+
+**Day 7: Performance**
+- Database indexing
+- Query optimization
+- Pagination
+
+**Day 8: Reliability**
+- Error handling
+- Edge cases (banned users, deleted posts)
+- Input validation
+
+**Day 9: Documentation**
+- API documentation (auto-generated)
+- Seed data for testing
+- README for API
+
+**Day 10: Deployment**
+- Dockerization
+- Basic load testing
+- Deployment setup
+
+### Frontend Development (Week 1)
+- Authentication pages (login/signup)
+- Profile page (view/edit)
+- Topic browsing interface
+- Post creation and reading
+- Markdown rendering
+
+### Frontend Development (Week 2)
+- Feed with sorting controls
+- Voting UI
+- Report button and flow
+- Admin dashboard
+- Mobile-responsive design
+
+---
+
+## Backend Architecture
+
+### Technology Stack
+* **FastAPI** – Async Python web framework
+* **PostgreSQL** – Relational database
+* **Redis** – Caching (optional for MVP, recommended for scale)
+* **Gunicorn + Uvicorn** – Production server
+* **Docker** – Containerization
+
+### Data Model (Core Tables)
+
+```
+User
+├── id (PK)
+├── email (unique)
+├── hashed_password
+├── role (user/admin)
+├── status (active/warned/banned)
+└── created_at
+
+Profile
+├── user_id (FK → User, PK)
+├── name
+├── bio
+├── institution
+└── interests (array or relation)
+
+Topic
+├── id (PK)
+├── name
+├── parent_id (FK → Topic, nullable)
+└── created_at
+
+Post
+├── id (PK)
+├── author_id (FK → User)
+├── topic_id (FK → Topic)
+├── title
+├── content_md (markdown)
+├── is_deleted (soft delete)
+└── created_at
+
+Reference
+├── id (PK)
+├── post_id (FK → Post)
+└── url
+
+Vote
+├── user_id (FK → User)
+├── post_id (FK → Post)
+├── value (+1 / -1)
+└── PRIMARY KEY (user_id, post_id)
+
+Report
+├── id (PK)
+├── post_id (FK → Post)
+├── reporter_id (FK → User)
+├── reason
+├── status (pending/ignored/actioned)
+└── created_at
+```
+
+### Critical Indexes
+```sql
+-- Performance essentials
+CREATE INDEX idx_post_topic ON Post(topic_id);
+CREATE INDEX idx_post_created ON Post(created_at DESC);
+CREATE INDEX idx_vote_post ON Vote(post_id);
+CREATE INDEX idx_post_author ON Post(author_id);
+CREATE INDEX idx_report_status ON Report(status);
+```
+
+---
+
+### Bottlenecks (and solutions)
+
+❌ **N+1 Queries** → Use joins and eager loading  
+❌ **Missing Indexes** → Index foreign keys and sort columns  
+❌ **Fat Responses** → Paginate everything  
+❌ **Stateful Auth** → Use JWT (stateless)  
+
+### Scaling Path (Future)
+
+1. **Stateless API** (already yes with JWT)
+2. **Redis caching** for:
+   - Hot posts
+   - Vote counts
+   - Feed rankings
+3. **PostgreSQL read replicas** for heavy read traffic
+4. **Horizontal scaling** – Add more API instances (FastAPI is stateless)
+5. **Split services** if needed (posts, auth, moderation as separate services)
+
+**Key insight:** Your bottleneck will be database design and query optimization, NOT Python.
+
+---
+
+## Development Setup
+
+### Backend Prerequisites
 * Python 3.10+
+* PostgreSQL 14+
 * Git
 
----
-
-### Steps
+### Backend Setup
 
 ```bash
 cd backend
 
-# create virtual environment (Optional)
+# Create virtual environment
 python -m venv venv
 
-# activate virtual environment (Windows)
+# Activate (Windows)
 venv\Scripts\activate
 
-python -m pip install --upgrade pip
+# Activate (Mac/Linux)
+source venv/bin/activate
 
+# Install dependencies
 pip install -r requirements.txt
 
-# apply migrations
-python manage.py migrate
+# Run migrations
+alembic upgrade head
 
-# start development server
-python manage.py runserver
+# Start development server
+uvicorn main:app --reload --port 8000
 ```
 
+Backend API: `http://localhost:8000`  
+API Docs: `http://localhost:8000/docs`
 
-##HOW TO RUN frontend 
+### Frontend Setup
 
-cd habit-tracker/frontend/src
-python -m http.server 5500
+```bash
+cd frontend
 
-Frontend will be available at:
+# Install dependencies
+npm install
 
-http://localhost:5500/index.html
-
-
-Backend will be available at:
-
+# Start development server
+npm run dev
 ```
-http://127.0.0.1:8000/
-```
+
+Frontend: `http://localhost:3000`
 
 ---
 
-## Development Phases
+## Project Structure
 
-### Phase 0 – Mini Prototype
-
-* Frontend-only
-* Uses browser storage (IndexedDB / cache)
-* Purpose: UI/UX validation, navigation flow, data modeling clarity
-
-### Phase 1 – Full Stack Application
-
-* Django REST backend
-* Persistent database
-* Authentication and sync
-* Leaderboards and AI integration
-
----
-
-## Roles 
-
-### Gitaansh
-- Architecture & system design
-- Data models and business logic
-- Analytics and streak calculations
-- Backend (Django REST) planning and implementation
-- AI roadmap logicd
-
-### Satyam
-- UI/UX design
-- Frontend implementation (HTML/CSS/JS)
-- PWA setup (manifest, service worker)
-- Responsive and mobile-first layout
-- Visualizations and polish
-
----
-
-## Structure
 ```
-habit-tracker/
+academiahub/
+│
+├── backend/
+│   ├── main.py              # FastAPI app entry
+│   ├── requirements.txt
+│   ├── alembic.ini
+│   │
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── config.py        # Environment config
+│   │   │
+│   │   ├── models/          # SQLAlchemy models
+│   │   │   ├── user.py
+│   │   │   ├── profile.py
+│   │   │   ├── topic.py
+│   │   │   ├── post.py
+│   │   │   ├── vote.py
+│   │   │   └── report.py
+│   │   │
+│   │   ├── schemas/         # Pydantic schemas
+│   │   │   ├── user.py
+│   │   │   ├── post.py
+│   │   │   └── ...
+│   │   │
+│   │   ├── api/             # Route handlers
+│   │   │   ├── auth.py
+│   │   │   ├── users.py
+│   │   │   ├── posts.py
+│   │   │   ├── topics.py
+│   │   │   ├── votes.py
+│   │   │   └── admin.py
+│   │   │
+│   │   ├── services/        # Business logic
+│   │   │   ├── auth.py
+│   │   │   ├── posts.py
+│   │   │   └── ranking.py   # Hot/new algorithms
+│   │   │
+│   │   ├── db/
+│   │   │   ├── database.py  # DB connection
+│   │   │   └── session.py
+│   │   │
+│   │   └── utils/
+│   │       ├── security.py  # JWT, password hashing
+│   │       └── pagination.py
+│   │
+│   └── alembic/             # Migrations
 │
 ├── frontend/
 │   ├── public/
-│   │   ├── icons/
-│   │   ├── manifest.json
-│   │   └── sw.js
-│   │
 │   ├── src/
-│   │   ├── index.html
-│   │   ├── css/
-│   │   │   ├── base.css
-│   │   │   ├── layout.css
-│   │   │   └── components.css
+│   │   ├── components/
+│   │   │   ├── auth/
+│   │   │   ├── post/
+│   │   │   ├── profile/
+│   │   │   └── admin/
 │   │   │
-│   │   ├── js/
-│   │   │   ├── app.js            # entry point
-│   │   │   ├── router.js         # page switching
-│   │   │   ├── state.js          # global state
+│   │   ├── pages/
+│   │   │   ├── Home.jsx
+│   │   │   ├── Feed.jsx
+│   │   │   ├── Post.jsx
+│   │   │   ├── Profile.jsx
+│   │   │   └── Admin.jsx
 │   │   │
-│   │   │   ├── services/
-│   │   │   │   ├── dataService.js
-│   │   │   │   ├── habitService.js
-│   │   │   │   ├── todoService.js
-│   │   │   │   └── analyticsService.js
+│   │   ├── services/
+│   │   │   └── api.js       # API client
 │   │   │
-│   │   │   ├── views/
-│   │   │   │   ├── home.js
-│   │   │   │   ├── habits.js
-│   │   │   │   ├── todos.js
-│   │   │   │   ├── analytics.js
-│   │   │   │   └── roadmap.js
-│   │   │
-│   │   │   ├── components/
-│   │   │   │   ├── habitCard.js
-│   │   │   │   ├── todoCard.js
-│   │   │   │   ├── bottomNav.js
-│   │   │   │   └── modal.js
-│   │   │
-│   │   │   └── utils/
-│   │   │       ├── date.js
-│   │   │       ├── streak.js
-│   │   │       └── constants.js
-│   │   │
-│   │   └── assets/
+│   │   └── App.jsx
 │   │
-│   └── vercel.json
+│   └── package.json
 │
-├── backend/          # added later
-│   ├── core/
-│   ├── habits/
-│   ├── todos/
-│   ├── goals/
-│   └── manage.py
-│
+├── docker-compose.yml
+├── .gitignore
 └── README.md
 ```
----
-
-## Stack 
-### Frontend
-- HTML, CSS, JavaScript
-- IndexedDB (local persistence)
-- Chart.js (analytics)
-- PWA (Service Worker + Manifest)
-### Backend (Planned)
-- Django
-- Django REST Framework
-- PostgreSQL
-- JWT Authentication
 
 ---
 
-## Deployment
-Frontend : github pages or vercel (static PWA hosting)
-Backend : Render or Railway
-Or maybe AWS
+## Team Roles
+
+### Backend Developer (Gitaansh)
+- API design and implementation
+- Database design and optimization
+- Authentication and authorization
+- Moderation system
+- Performance and scalability
+
+### Frontend Developer (Satyam)
+- UI/UX design
+- Component implementation
+- API integration
+- Responsive design
+- Admin dashboard
 
 ---
 
-## Future 
-tbd
+## Future Enhancements
+
+### Phase 2 (Post-MVP)
+- Video posts (with minimum duration requirements)
+- Image support
+- Enhanced markdown (LaTeX for equations)
+- Topic subscription
+- User achievements/reputation
+
+### Phase 3 (Advanced)
+- AI-assisted moderation
+- Recommendation system
+- Advanced analytics
+- Direct messaging
+- Collaborative papers/projects
+- Export to citation formats
 
 ---
 
-## New Terms & Concepts
+## Next Steps
 
-* **SPA (Single Page Application)** – One HTML entry point, JS-driven navigation
-* **PWA (Progressive Web App)** – Installable, offline-capable web app
-* **Manifest** – Metadata for app installation
-* **Service Worker** – Offline caching and background behavior
+### Immediate Actions
+1. Set up FastAPI project skeleton
+2. Design exact API endpoints
+3. Create database migrations
+4. Implement authentication flow
+5. Build topic/subtopic hierarchy
+
+### Questions to Answer
+- Hot post ranking formula (implement Reddit-style?)
+- Reference validation (check URL validity?)
+- User warning system (how many warnings before ban?)
+- Soft delete behavior (hide from users but keep in DB?)
+
+---
+
+## Technical Decisions Made
+
+✅ **FastAPI over Django** – Better async support, faster for API-only  
+✅ **PostgreSQL** – ACID compliance, good for relational data  
+✅ **JWT auth** – Stateless, scales horizontally  
+✅ **Soft deletes** – Preserve data for moderation review  
+✅ **Markdown only** – Keep MVP simple  
+
+---
+
+## Resources
+
+### Learning Materials
+- FastAPI Official Docs: https://fastapi.tiangolo.com/
+- SQLAlchemy ORM: https://docs.sqlalchemy.org/
+- PostgreSQL Indexing: https://www.postgresql.org/docs/current/indexes.html
+
+### Similar Projects (for inspiration)
+- Reddit (open source): https://github.com/reddit-archive/reddit
+- Lobsters: https://github.com/lobsters/lobsters
+- Hacker News API: https://github.com/HackerNews/API
 
 ---
