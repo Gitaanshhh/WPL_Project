@@ -1,13 +1,7 @@
 import { renderHome } from "./views/home.js";
-import { renderHabits } from "./views/habits.js";
-import { renderTodos } from "./views/todos.js";
-import { renderAnalytics } from "./views/analytics.js";
 
 const routes = {
   "/": renderHome,
-  "/habits": renderHabits,
-  "/todos": renderTodos,
-  "/analytics": renderAnalytics
 };
 
 export function initRouter() {
