@@ -1,0 +1,33 @@
+{
+  "name": "habittracker",
+  "version": "1.0.0",
+  "description": "An academic social platform that combines the best of Reddit's topic-based discussions, LinkedIn's professional profiles, and peer-regulated content quality. Built for scholars to share knowledge, connect, and maintain academic rigor.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite --config frontend/vite.config.js",
+    "build": "vite build --config frontend/vite.config.js",
+    "preview": "vite preview --config frontend/vite.config.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gitaanshhh/HabitTracker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Gitaanshhh/HabitTracker/issues"
+  },
+  "homepage": "https://github.com/Gitaanshhh/HabitTracker#readme",
+  "dependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.13.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.4",
+    "vite": "^7.3.1"
+  }
+}

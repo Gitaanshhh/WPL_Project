@@ -1,10 +1,59 @@
-#Venv
+# Python Virtual Environment
 backend/venv
+venv/
+env/
 
-#Py cache
-__pycache__/
-*.pyc
-
-# Django
-db.sqlite3
+# Environment variables
 .env
+.env.*
+!.env.example
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# FastAPI / Uvicorn
+*.log
+uvicorn.log
+
+# Database
+*.db
+*.sqlite3
+
+# Migrations (keep versions, ignore cache)
+alembic/__pycache__/
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node modules
+node_modules/
+/node_modules
+
+# Frontend build artifacts
+frontend/dist/
+frontend/build/
+dist/
+build/
+
+# Frontend cache
+.vite/
+.cache/
+.parcel-cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test coverage
+coverage/
+*.coverage
+.pytest_cache/

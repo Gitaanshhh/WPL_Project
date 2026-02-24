@@ -1,422 +1,243 @@
-# AcademiaHub | Scholar | ..
+# AcademiaHub
 
-An academic social platform that combines the best of Reddit's topic-based discussions, LinkedIn's professional profiles, and peer-regulated content quality. Built for scholars to share knowledge, connect, and maintain academic rigor.
+An academic social platform combining Reddit's topic-based discussions, LinkedIn's professional profiles, and peer-regulated content quality.
 
----
+## Quick Start
 
-## Basic Features
+### Test Login Credentials
 
-### User Management
-* Signup / Login (JWT authentication)
-* LinkedIn-style profile:
-  * Name, bio
-  * Institution
-  * Academic interests (topics)
-* User roles: `user`, `admin` and `dev`
+| Username | Password | Role           |
+|----------|----------|----------------|
+| `admin`  | `admin`  | Administrator  |
+| `mod`    | `mod`    | Moderator      |
+| `dev`    | `dev`    | Developer      |
+| `userV`  | `userV`  | Verified User  |
+| `user`   | `user`   | General User   |
 
-### Content System
-* **Topics & Subtopics** – Hierarchical tree structure (like subreddits)
-* **Blog Posts** (text only for MVP):
-  * Title
-  * Markdown content
-  * References (required list of URLs)
-* Upvote / Downvote system
+### Development Setup
 
-### Moderation
-* **User reporting** – Report posts as non-academic or inaccurate
-* **Admin capabilities:**
-  * Delete post
-  * Warn user
-  * Ban user
-  * Ignore report
-
-### Feed
-* Reddit-like feed with sorting:
-  * Hot (trending)
-  * New (chronological)
-
-**Not in MVP:** DMs, follows, notifications, AI moderation, videos, images
-
----
-
-## Two-Week Development Plan
-
-### Backend Development (Week 1: Foundations)
-
-**Day 1: Project Setup**
-- FastAPI setup
-- PostgreSQL database
-- SQLAlchemy + Alembic migrations
-- JWT authentication
-- User model + roles
-
-**Day 2: Profiles & Topics**
-- Profile model (name, bio, institution)
-- Topic & subtopic models (tree structure)
-- Topic CRUD endpoints (admin only)
-
-**Day 3: Content Creation**
-- Post model with markdown support
-- Create / edit / delete post endpoints
-- Reference model and validation
-
-**Day 4: Engagement**
-- Voting system (upvote/downvote)
-- Feed endpoints with sorting:
-  - `/posts?sort=new`
-  - `/posts?sort=hot`
-
-**Day 5: Moderation System**
-- Report model
-- Admin action endpoints:
-  - Warn user
-  - Ban user
-  - Delete post
-  - Ignore report
-
-### Backend Development (Week 2: Hardening)
-
-**Day 6: Security & Permissions**
-- Permission guards
-- Soft deletes
-- Rate limiting (basic)
-
-**Day 7: Performance**
-- Database indexing
-- Query optimization
-- Pagination
-
-**Day 8: Reliability**
-- Error handling
-- Edge cases (banned users, deleted posts)
-- Input validation
-
-**Day 9: Documentation**
-- API documentation (auto-generated)
-- Seed data for testing
-- README for API
-
-**Day 10: Deployment**
-- Dockerization
-- Basic load testing
-- Deployment setup
-
-### Frontend Development (Week 1)
-- Authentication pages (login/signup)
-- Profile page (view/edit)
-- Topic browsing interface
-- Post creation and reading
-- Markdown rendering
-
-### Frontend Development (Week 2)
-- Feed with sorting controls
-- Voting UI
-- Report button and flow
-- Admin dashboard
-- Mobile-responsive design
-
----
-
-## Backend Architecture
-
-### Technology Stack
-* **FastAPI** – Async Python web framework
-* **PostgreSQL** – Relational database
-* **Redis** – Caching (optional for MVP, recommended for scale)
-* **Gunicorn + Uvicorn** – Production server
-* **Docker** – Containerization
-
-### Data Model (Core Tables)
-
-```
-User
-├── id (PK)
-├── email (unique)
-├── hashed_password
-├── role (user/admin)
-├── status (active/warned/banned)
-└── created_at
-
-Profile
-├── user_id (FK → User, PK)
-├── name
-├── bio
-├── institution
-└── interests (array or relation)
-
-Topic
-├── id (PK)
-├── name
-├── parent_id (FK → Topic, nullable)
-└── created_at
-
-Post
-├── id (PK)
-├── author_id (FK → User)
-├── topic_id (FK → Topic)
-├── title
-├── content_md (markdown)
-├── is_deleted (soft delete)
-└── created_at
-
-Reference
-├── id (PK)
-├── post_id (FK → Post)
-└── url
-
-Vote
-├── user_id (FK → User)
-├── post_id (FK → Post)
-├── value (+1 / -1)
-└── PRIMARY KEY (user_id, post_id)
-
-Report
-├── id (PK)
-├── post_id (FK → Post)
-├── reporter_id (FK → User)
-├── reason
-├── status (pending/ignored/actioned)
-└── created_at
-```
-
-### Critical Indexes
-```sql
--- Performance essentials
-CREATE INDEX idx_post_topic ON Post(topic_id);
-CREATE INDEX idx_post_created ON Post(created_at DESC);
-CREATE INDEX idx_vote_post ON Vote(post_id);
-CREATE INDEX idx_post_author ON Post(author_id);
-CREATE INDEX idx_report_status ON Report(status);
-```
-
----
-
-### Bottlenecks (and solutions)
-
-❌ **N+1 Queries** → Use joins and eager loading  
-❌ **Missing Indexes** → Index foreign keys and sort columns  
-❌ **Fat Responses** → Paginate everything  
-❌ **Stateful Auth** → Use JWT (stateless)  
-
-### Scaling Path (Future)
-
-1. **Stateless API** (already yes with JWT)
-2. **Redis caching** for:
-   - Hot posts
-   - Vote counts
-   - Feed rankings
-3. **PostgreSQL read replicas** for heavy read traffic
-4. **Horizontal scaling** – Add more API instances (FastAPI is stateless)
-5. **Split services** if needed (posts, auth, moderation as separate services)
-
-**Key insight:** Your bottleneck will be database design and query optimization, NOT Python.
-
----
-
-## Development Setup
-
-### Backend Prerequisites
-* Python 3.10+
-* PostgreSQL 14+
-* Git
-
-### Backend Setup
-
-```bash
-cd backend
-
-# Create virtual environment
-python -m venv venv
-
-# Activate (Windows)
-venv\Scripts\activate
-
-# Activate (Mac/Linux)
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run migrations
-alembic upgrade head
-
-# Start development server
-uvicorn main:app --reload --port 8000
-```
-
-Backend API: `http://localhost:8000`  
-API Docs: `http://localhost:8000/docs`
-
-### Frontend Setup
-
+**Frontend (Terminal 1):**
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
+# Runs on http://localhost:5173
 ```
 
-Frontend: `http://localhost:3000`
-
----
-
-## Project Structure
-
+**Backend (Terminal 2):**
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate  # Windows | source venv/bin/activate (Mac/Linux)
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+# Runs on http://localhost:8000
+# API Docs: http://localhost:8000/docs
 ```
-academiahub/
-│
-├── backend/
-│   ├── main.py              # FastAPI app entry
-│   ├── requirements.txt
-│   ├── alembic.ini
-│   │
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── config.py        # Environment config
-│   │   │
-│   │   ├── models/          # SQLAlchemy models
-│   │   │   ├── user.py
-│   │   │   ├── profile.py
-│   │   │   ├── topic.py
-│   │   │   ├── post.py
-│   │   │   ├── vote.py
-│   │   │   └── report.py
-│   │   │
-│   │   ├── schemas/         # Pydantic schemas
-│   │   │   ├── user.py
-│   │   │   ├── post.py
-│   │   │   └── ...
-│   │   │
-│   │   ├── api/             # Route handlers
-│   │   │   ├── auth.py
-│   │   │   ├── users.py
-│   │   │   ├── posts.py
-│   │   │   ├── topics.py
-│   │   │   ├── votes.py
-│   │   │   └── admin.py
-│   │   │
-│   │   ├── services/        # Business logic
-│   │   │   ├── auth.py
-│   │   │   ├── posts.py
-│   │   │   └── ranking.py   # Hot/new algorithms
-│   │   │
-│   │   ├── db/
-│   │   │   ├── database.py  # DB connection
-│   │   │   └── session.py
-│   │   │
-│   │   └── utils/
-│   │       ├── security.py  # JWT, password hashing
-│   │       └── pagination.py
-│   │
-│   └── alembic/             # Migrations
-│
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── auth/
-│   │   │   ├── post/
-│   │   │   ├── profile/
-│   │   │   └── admin/
-│   │   │
-│   │   ├── pages/
-│   │   │   ├── Home.jsx
-│   │   │   ├── Feed.jsx
-│   │   │   ├── Post.jsx
-│   │   │   ├── Profile.jsx
-│   │   │   └── Admin.jsx
-│   │   │
-│   │   ├── services/
-│   │   │   └── api.js       # API client
-│   │   │
-│   │   └── App.jsx
-│   │
-│   └── package.json
-│
-├── docker-compose.yml
-├── .gitignore
-└── README.md
+
+### MongoDB Atlas Setup
+
+1. Create account at https://cloud.mongodb.com/
+2. Create a new cluster (free M0 tier)
+3. Create database user (Database Access)
+4. Whitelist IP address (Network Access - allow from anywhere: 0.0.0.0/0)
+5. Get connection string: Clusters > Connect > Connect your application
+6. Update `backend/.env`:
+```env
+MONGODB_URL=mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/
+DATABASE_NAME=academiahub
+SECRET_KEY=your-secret-key-here
 ```
 
 ---
 
-## Team Roles
+## Core Features
 
-### Backend Developer (Gitaansh)
-- API design and implementation
-- Database design and optimization
-- Authentication and authorization
-- Moderation system
-- Performance and scalability
+**User Management:**
+* Role-based access control (5 roles)
+* JWT authentication
+* User profiles with institution and interests
 
-### Frontend Developer (Satyam)
-- UI/UX design
-- Component implementation
-- API integration
-- Responsive design
-- Admin dashboard
+**Content System:**
+* Topics and subtopics (hierarchical)
+* Academic posts with markdown and references
+* Voting system
 
----
+**Moderation:**
+* User reporting
+* Admin tools (delete, warn, ban)
+* Content quality control
 
-## Future Enhancements
-
-### Phase 2 (Post-MVP)
-- Video posts (with minimum duration requirements)
-- Image support
-- Enhanced markdown (LaTeX for equations)
-- Topic subscription
-- User achievements/reputation
-
-### Phase 3 (Advanced)
-- AI-assisted moderation
-- Recommendation system
-- Advanced analytics
-- Direct messaging
-- Collaborative papers/projects
-- Export to citation formats
+**Feed:**
+* Sorting (Hot/New)
+* Minimal, academic-focused UI
 
 ---
 
-## Next Steps
+## Technology Stack
 
-### Immediate Actions
-1. Set up FastAPI project skeleton
-2. Design exact API endpoints
-3. Create database migrations
-4. Implement authentication flow
-5. Build topic/subtopic hierarchy
+**Frontend:**
+* React 18 + Vite
+* React Router
+* CSS3 (custom styling)
 
-### Questions to Answer
-- Hot post ranking formula (implement Reddit-style?)
-- Reference validation (check URL validity?)
-- User warning system (how many warnings before ban?)
-- Soft delete behavior (hide from users but keep in DB?)
+**Backend:**
+* FastAPI (Python)
+* Uvicorn (ASGI server)
+* Planned: PostgreSQL + SQLAlchemy
+
+**Development:**
+* Git version control
+* Hot reload for both frontend and backend
+
+---
+## 🗄 Planned Database Schema
+
+**Collections:**
+
+```javascript
+// users
+{
+  _id: ObjectId,
+  email: String (unique),
+  hashed_password: String,
+  name: String,
+  institution: String,
+  bio: String,
+  role: Enum (General User, Verified User, Moderator, Developer, Administrator),
+  status: Enum (active, warned, banned),
+  created_at: DateTime
+}
+
+// posts
+{
+  _id: ObjectId,
+  author_id: String,
+  topic: String,
+  title: String,
+  content: String (markdown),
+  references: String,
+  is_deleted: Boolean,
+  created_at: DateTime,
+  updated_at: DateTime
+}
+
+// topics
+{
+  _id: ObjectId,
+  name: String,
+  parent_id: String (nullable),
+  created_at: DateTime
+}
+
+// votes
+{
+  _id: ObjectId,
+  user_id: String,
+  post_id: String,
+  value: Number (+1/-1)
+}
+
+// reports
+{
+  _id: ObjectId,
+  post_id: String,
+  reporter_id: String,
+  reason: String,
+  status: Enum (pending, ignored, actioned),
+  created_at: DateTime
+}
+```
 
 ---
 
-## Technical Decisions Made
+## API Endpoints
 
-✅ **FastAPI over Django** – Better async support, faster for API-only  
-✅ **PostgreSQL** – ACID compliance, good for relational data  
-✅ **JWT auth** – Stateless, scales horizontally  
-✅ **Soft deletes** – Preserve data for moderation review  
-✅ **Markdown only** – Keep MVP simple  
+**Current:**
+* GET `/api/posts` - Get all posts
+* GET `/api/posts/{id}` - Get specific post
+* POST `/api/posts` - Create post
+* PUT `/api/posts/{id}` - Update post
+* DELETE `/api/posts/{id}` - Delete post
+* GET `/api/health` - Health check
+
+**Planned:**
+* POST `/api/auth/login` - User login
+* POST `/api/auth/signup` - User registration
+* GET `/api/users/{id}` - Get user profile
+* POST `/api/votes` - Vote on post
+* POST `/api/reports` - Report post
+* GET `/api/topics` - Get all topics
+
+---
+
+## Development Notes
+
+**Frontend runs separately during development:**
+* Frontend: `http://localhost:5173` (Vite dev server)
+* Backend: `http://localhost:8000` (FastAPI)
+* CORS enabled for cross-origin requests
+
+**Database:**
+* MongoDB Atlas cloud database
+* Motor async driver for FastAPI
+* Pydantic schemas for validation
+
+**Testing:**
+* Interactive API docs at `/docs`
+
+---
+
+## Team
+
+**Backend:** Gitaansh  
+**Frontend:** Satyam
+
+---
+
+## Current Status
+
+**In Progress:**
+- Backend API development
+- Database integration
+- Authentication endpoints
+- Full CRUD operations
+
+**Planned:**
+- Real-time voting system
+- User profiles and settings
+- Advanced moderation tools
+- Feed sorting algorithms
+- Image and video support
+
+---
+
+## Key Features by Role
+
+| Feature | General User | Verified User | Moderator | Developer | Administrator |
+|---------|--------------|---------------|-----------|-----------|---------------|
+| View posts | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Create posts | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Vote on posts | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Report posts | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Delete posts | ❌ | Own only | Any | Any | Any |
+| Warn users | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Ban users | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Manage topics | ❌ | ❌ | ❌ | ✅ | ✅ |
+| System config | ❌ | ❌ | ❌ | ✅ | ✅ |
 
 ---
 
 ## Resources
 
-### Learning Materials
-- FastAPI Official Docs: https://fastapi.tiangolo.com/
-- SQLAlchemy ORM: https://docs.sqlalchemy.org/
-- PostgreSQL Indexing: https://www.postgresql.org/docs/current/indexes.html
-
-### Similar Projects (for inspiration)
-- Reddit (open source): https://github.com/reddit-archive/reddit
-- Lobsters: https://github.com/lobsters/lobsters
-- Hacker News API: https://github.com/HackerNews/API
+* [FastAPI Documentation](https://fastapi.tiangolo.com/)
+* [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+* [Motor (Async MongoDB)](https://motor.readthedocs.io/)
+* [React Documentation](https://react.dev/)
+* [Vite Documentation](https://vitejs.dev/)
 
 ---
+
+## License
+
+This project is in development. License TBD.
