@@ -35,19 +35,31 @@ uvicorn app.main:app --reload
 # API Docs: http://localhost:8000/docs
 ```
 
-### MongoDB Atlas Setup
+### PostgreSQL Setup
 
-1. Create account at https://cloud.mongodb.com/
-2. Create a new cluster (free M0 tier)
-3. Create database user (Database Access)
-4. Whitelist IP address (Network Access - allow from anywhere: 0.0.0.0/0)
-5. Get connection string: Clusters > Connect > Connect your application
-6. Update `backend/.env`:
+1. Install PostgreSQL: https://www.postgresql.org/download/
+2. Create database:
+```bash
+psql -U postgres
+CREATE DATABASE academiahub;
+\q
+```
+3. Run migrations to create tables and seed data:
+```bash
+cd backend
+psql -U postgres -d academiahub -f migrations/001_create_tables.sql
+psql -U postgres -d academiahub -f migrations/002_seed_data.sql
+```
+4. Update `backend/.env`:
 ```env
-MONGODB_URL=mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/
-DATABASE_NAME=academiahub
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/academiahub
 SECRET_KEY=your-secret-key-here
 ```
+
+**Test Users** (password: `password123`):
+- admin@academiahub.com (Administrator)
+- mod@academiahub.com (Moderator)  
+- verified@academiahub.com (Verified User)
 
 ---
 
@@ -84,90 +96,130 @@ SECRET_KEY=your-secret-key-here
 **Backend:**
 * FastAPI (Python)
 * Uvicorn (ASGI server)
-* Planned: PostgreSQL + SQLAlchemy
+* PostgreSQL + SQLAlchemy (async)
 
 **Development:**
 * Git version control
 * Hot reload for both frontend and backend
 
 ---
-## 🗄 Planned Database Schema
+## 🗄 Database Schema (PostgreSQL)
 
-**Collections:**
+**Tables:**
 
-```javascript
-// users
-{
-  _id: ObjectId,
-  email: String (unique),
-  hashed_password: String,
-  name: String,
-  institution: String,
-  bio: String,
-  role: Enum (General User, Verified User, Moderator, Developer, Administrator),
-  status: Enum (active, warned, banned),
-  created_at: DateTime
-}
+```sql
+-- users
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  university VARCHAR(255),
+  pronouns VARCHAR(50),
+  bio TEXT,
+  role VARCHAR(50) DEFAULT 'General User',
+  status VARCHAR(50) DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT NOW()
+);
 
-// posts
-{
-  _id: ObjectId,
-  author_id: String,
-  topic: String,
-  title: String,
-  content: String (markdown),
-  references: String,
-  is_deleted: Boolean,
-  created_at: DateTime,
-  updated_at: DateTime
-}
+-- posts
+CREATE TABLE posts (
+  id SERIAL PRIMARY KEY,
+  author_id VARCHAR(255) NOT NULL,
+  topic VARCHAR(255) NOT NULL,
+  title VARCHAR(500) NOT NULL,
+  content TEXT NOT NULL,
+  references TEXT[],
+  is_deleted BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP
+);
 
-// topics
-{
-  _id: ObjectId,
-  name: String,
-  parent_id: String (nullable),
-  created_at: DateTime
-}
+-- topics (planned)
+CREATE TABLE topics (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  parent_id INTEGER REFERENCES topics(id),
+  created_at TIMESTAMP DEFAULT NOW()
+);
 
-// votes
-{
-  _id: ObjectId,
-  user_id: String,
-  post_id: String,
-  value: Number (+1/-1)
-}
+-- votes (planned)
+CREATE TABLE votes (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  post_id INTEGER REFERENCES posts(id),
+  value INTEGER CHECK (value IN (-1, 1)),
+  UNIQUE(user_id, post_id)
+);
 
-// reports
-{
-  _id: ObjectId,
-  post_id: String,
-  reporter_id: String,
-  reason: String,
-  status: Enum (pending, ignored, actioned),
-  created_at: DateTime
-}
+-- reports (planned)
+CREATE TABLE reports (
+  id SERIAL PRIMARY KEY,
+  post_id INTEGER REFERENCES posts(id),
+  reporter_id INTEGER REFERENCES users(id),
+  reason TEXT NOT NULL,
+  status VARCHAR(50) DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT NOW()
+);
 ```
+
+---
+
+## Backend Structure
+
+The backend follows a clean, modular architecture:
+
+```
+backend/
+├── app/
+│   ├── main.py              # FastAPI app entrypoint
+│   ├── core/                # Core configuration
+│   │   ├── config.py        # Settings & environment variables
+│   │   └── database.py      # SQLAlchemy engine & session
+│   ├── models/              # SQLAlchemy ORM models
+│   │   ├── user.py
+│   │   └── post.py
+│   ├── schemas/             # Pydantic request/response models
+│   │   ├── user.py
+│   │   └── post.py
+│   ├── api/v1/              # API routes (versioned)
+│   │   └── posts.py
+│   └── services/            # Business logic layer
+│       └── post_service.py
+├── migrations/              # SQL migration scripts
+│   ├── 001_create_tables.sql
+│   ├── 002_seed_data.sql
+│   └── README.md
+├── requirements.txt
+└── .env
+```
+
+**Architecture layers:**
+- **Models**: Database ORM models (SQLAlchemy)
+- **Schemas**: Request/response validation (Pydantic)
+- **Services**: Business logic and data operations
+- **API**: HTTP endpoints and routing
+- **Core**: Configuration and shared utilities
 
 ---
 
 ## API Endpoints
 
 **Current:**
-* GET `/api/posts` - Get all posts
-* GET `/api/posts/{id}` - Get specific post
-* POST `/api/posts` - Create post
-* PUT `/api/posts/{id}` - Update post
-* DELETE `/api/posts/{id}` - Delete post
-* GET `/api/health` - Health check
+* GET `/api/v1/posts` - Get all posts
+* GET `/api/v1/posts/{id}` - Get specific post
+* POST `/api/v1/posts` - Create post
+* PUT `/api/v1/posts/{id}` - Update post
+* DELETE `/api/v1/posts/{id}` - Delete post
+* GET `/health` - Health check
 
 **Planned:**
-* POST `/api/auth/login` - User login
-* POST `/api/auth/signup` - User registration
-* GET `/api/users/{id}` - Get user profile
-* POST `/api/votes` - Vote on post
-* POST `/api/reports` - Report post
-* GET `/api/topics` - Get all topics
+* POST `/api/v1/auth/login` - User login
+* POST `/api/v1/auth/signup` - User registration
+* GET `/api/v1/users/{id}` - Get user profile
+* POST `/api/v1/votes` - Vote on post
+* POST `/api/v1/reports` - Report post
+* GET `/api/v1/topics` - Get all topics
 
 ---
 
@@ -179,12 +231,21 @@ SECRET_KEY=your-secret-key-here
 * CORS enabled for cross-origin requests
 
 **Database:**
-* MongoDB Atlas cloud database
-* Motor async driver for FastAPI
+* PostgreSQL relational database
+* SQLAlchemy ORM with async support (asyncpg driver)
+* SQL migration scripts (no ORM auto-migration)
 * Pydantic schemas for validation
+
+**Architecture:**
+* Layered structure: API → Services → Models
+* Dependency injection for database sessions
+* Versioned API routes (/api/v1/)
+* Centralized configuration management
 
 **Testing:**
 * Interactive API docs at `/docs`
+* Health check endpoint at `/health`
+* Pre-seeded test data for development
 
 ---
 
@@ -199,7 +260,7 @@ SECRET_KEY=your-secret-key-here
 
 **In Progress:**
 - Backend API development
-- Database integration
+- PostgreSQL database integration
 - Authentication endpoints
 - Full CRUD operations
 
@@ -231,8 +292,8 @@ SECRET_KEY=your-secret-key-here
 ## Resources
 
 * [FastAPI Documentation](https://fastapi.tiangolo.com/)
-* [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
-* [Motor (Async MongoDB)](https://motor.readthedocs.io/)
+* [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+* [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
 * [React Documentation](https://react.dev/)
 * [Vite Documentation](https://vitejs.dev/)
 

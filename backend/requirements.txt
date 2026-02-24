@@ -1,7 +1,8 @@
 fastapi
 uvicorn[standard]
-motor
-pydantic
+sqlalchemy
+asyncpg
+pydantic[email]
 pydantic-settings
 python-dotenv
 passlib[bcrypt]

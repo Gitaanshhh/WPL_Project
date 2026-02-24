@@ -11,12 +11,15 @@ API Documentation: http://localhost:8000/docs
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import posts
+from app.api.v1 import api_router
+from app.core.config import settings
+from app.core.database import close_database_connection
+
 
 # Create FastAPI app
 app = FastAPI(
-    title="AcademiaHub API",
-    description="Academic social platform API with MongoDB backend",
+    title=settings.PROJECT_NAME,
+    description="Academic social platform API with PostgreSQL backend",
     version="1.0.0"
 )
 
@@ -29,8 +32,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(posts.router)
+# Include API v1 routers
+app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    """Close database connection on shutdown"""
+    await close_database_connection()
+
 
 @app.get("/")
 async def root():
@@ -39,14 +49,15 @@ async def root():
         "message": "AcademiaHub API",
         "version": "1.0.0",
         "docs": "/docs",
-        "health": "/api/health"
+        "health": "/health"
     }
 
-@app.get("/api/health")
+
+@app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {
         "status": "ok",
         "message": "Backend is running",
-        "database": "MongoDB Atlas"
+        "database": "PostgreSQL"
     }
