@@ -1,22 +1,103 @@
 # Scholr
 
-An academic social platform combining Reddit's topic-based discussions, LinkedIn's professional profiles, and peer-regulated content quality.
+An academic social platform combining Reddit's topic-based discussions, LinkedIn's professional profiles, and peer-regulated content quality. Built for scholars to share knowledge, connect, and maintain academic rigor.
+
+**Live Demo:** [scholr-beryl.vercel.app](https://scholr-beryl.vercel.app/)
+**Backend API:** [wpl-project-6334.onrender.com](https://wpl-project-6334.onrender.com/health/)
+**LinkedIn:** [linkedin.com/company/scholr-satyam-gitaansh](https://www.linkedin.com/company/scholr-satyam-gitaansh)
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, Vite 7, Tailwind CSS 4, React Router 7 |
+| Backend | Django 4.2, Django REST Framework |
+| Authentication | Custom token auth + Supabase OAuth (Google, LinkedIn) |
+| Database | PostgreSQL (production), SQLite (local dev) |
+| Deployment | Vercel (frontend), Render (backend), Supabase (auth + storage) |
+
+---
+
+## Features
+
+**Authentication & Authorization**
+- Role-based access control with 5 user roles
+- Custom bearer token authentication with 24-hour expiry
+- OAuth login via Google and LinkedIn (Supabase Auth)
+- Role switching for Administrators and Developers
+
+**Content System**
+- Hierarchical topics and subtopics
+- Academic posts with references
+- Upvote/downvote system
+- Comment threads on posts
+
+**Moderation**
+- Post reporting system
+- Admin tools for content management (delete, warn, ban)
+- Role-based permissions for moderation actions
+
+**User Experience**
+- Dark/light theme toggle
+- Responsive design with mobile sidebar
+- Real-time search across posts, topics, and authors
+- User profiles with institution and bio
+
+---
+
+## Role-Based Permissions
+
+| Feature | General User | Verified User | Moderator | Developer | Administrator |
+|---------|:---:|:---:|:---:|:---:|:---:|
+| View posts | Yes | Yes | Yes | Yes | Yes |
+| Create posts | - | Yes | Yes | Yes | Yes |
+| Vote on posts | - | Yes | Yes | Yes | Yes |
+| Report posts | - | Yes | Yes | Yes | Yes |
+| Delete posts | - | Own only | Any | Any | Any |
+| Warn/Ban users | - | - | Yes | Yes | Yes |
+| Manage topics | - | - | - | Yes | Yes |
+| System config | - | - | - | Yes | Yes |
+| Switch roles | - | - | - | 2 roles | All roles |
+
+---
 
 ## Quick Start
 
-### Test Login Credentials
+### Test Credentials
 
-| Username | Password | Role           |
-|----------|----------|----------------|
-| `admin`  | `admin`  | Administrator  |
-| `mod`    | `mod`    | Moderator      |
-| `dev`    | `dev`    | Developer      |
-| `userV`  | `userV`  | Verified User  |
-| `user`   | `user`   | General User   |
+| Username | Password | Role |
+|----------|----------|------|
+| `admin` | `admin` | Administrator |
+| `mod` | `mod` | Moderator |
+| `dev` | `dev` | Developer |
+| `userV` | `userV` | Verified User |
+| `user` | `user` | General User |
 
-### Development Setup
+### Local Development
 
-**Frontend (Terminal 1):**
+**1. Clone the repository**
+```bash
+git clone https://github.com/Gitaanshhh/WPL_Project.git
+cd WPL_Project
+```
+
+**2. Backend setup**
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # Mac/Linux
+pip install -r requirements.txt
+cp .env.example .env         # Edit .env with your credentials
+python manage.py makemigrations
+python manage.py migrate
+python manage.py runserver
+# Runs on http://localhost:8000
+```
+
+**3. Frontend setup**
 ```bash
 cd frontend
 npm install
@@ -24,308 +105,158 @@ npm run dev
 # Runs on http://localhost:5173
 ```
 
-**Backend (Terminal 2):**
-```bash
-python -m venv venv
-venv\Scripts\activate  # Windows | source venv/bin/activate (Mac/Linux)
-pip install -r requirements.txt
+### Environment Variables
 
-cd backend
-python manage.py makemigrations
-python manage.py migrate
-python manage.py runserver
-# Runs on http://localhost:8000
-```
-
-### PostgreSQL Setup
-
-1. Install PostgreSQL: https://www.postgresql.org/download/
-2. Create database:
-```bash
-psql -U postgres
-CREATE DATABASE scholr;
-\q
-```
-3. Run migrations to create tables and seed data:
-```bash
-cd backend
-psql -U postgres -d scholr -f migrations/001_create_tables.sql
-psql -U postgres -d scholr -f migrations/002_seed_data.sql
-```
-4. Update `settings.py`:
+**Backend (`backend/.env`):**
 ```env
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'scholr',
-        'USER': 'postgres',
-        'PASSWORD': 'password',
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
-}
+SECRET_KEY=your-django-secret-key
+DEBUG=True
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_JWT_SECRET=your-jwt-secret
 ```
 
-**Test Users** (password: `password123`):
-- admin@scholr.com (Administrator)
-- mod@scholr.com (Moderator)  
-- verified@scholr.com (Verified User)
-
----
-
-## Core Features
-
-**User Management:**
-* Role-based access control (5 roles)
-* JWT authentication
-* User profiles with institution and interests
-
-**Content System:**
-* Topics and subtopics (hierarchical)
-* Academic posts with markdown and references
-* Voting system
-
-**Moderation:**
-* User reporting
-* Admin tools (delete, warn, ban)
-* Content quality control
-
-**Feed:**
-* Sorting (Hot/New)
-* Minimal, academic-focused UI
-
----
-
-## Technology Stack
-
-**Frontend:**
-* React 18 + Vite
-* React Router
-* CSS3 (custom styling)
-
-**Backend:**
-* Django
-* PostgreSQL
-
-**Development:**
-* Git version control
-* Hot reload for both frontend and backend
-
----
-## 🗄 Database Schema (PostgreSQL)
-
-**Tables:**
-
-```sql
--- users
-CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  university VARCHAR(255),
-  pronouns VARCHAR(50),
-  bio TEXT,
-  role VARCHAR(50) DEFAULT 'General User',
-  status VARCHAR(50) DEFAULT 'active',
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- posts
-CREATE TABLE posts (
-  id SERIAL PRIMARY KEY,
-  author_id VARCHAR(255) NOT NULL,
-  topic VARCHAR(255) NOT NULL,
-  title VARCHAR(500) NOT NULL,
-  content TEXT NOT NULL,
-  references TEXT[],
-  is_deleted BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP
-);
-
--- topics (planned)
-CREATE TABLE topics (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  parent_id INTEGER REFERENCES topics(id),
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- votes (planned)
-CREATE TABLE votes (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id),
-  post_id INTEGER REFERENCES posts(id),
-  value INTEGER CHECK (value IN (-1, 1)),
-  UNIQUE(user_id, post_id)
-);
-
--- reports (planned)
-CREATE TABLE reports (
-  id SERIAL PRIMARY KEY,
-  post_id INTEGER REFERENCES posts(id),
-  reporter_id INTEGER REFERENCES users(id),
-  reason TEXT NOT NULL,
-  status VARCHAR(50) DEFAULT 'pending',
-  created_at TIMESTAMP DEFAULT NOW()
-);
+**Frontend (`frontend/.env.development`):**
+```env
+VITE_API_URL=http://localhost:8000
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
 ---
 
-## Backend Structure
+## OAuth Setup (Google & LinkedIn)
 
-The backend follows a clean, modular architecture:
-
-```
-backend/
-├── manage.py
-├── backend/
-│   ├── settings.py
-│   └── urls.py
-├── apps/
-│   ├── accounts/
-│   ├── posts/
-│   ├── interactions/
-│   └── core/
-├── migrations/              # SQL migration scripts
-│   ├── 001_create_tables.sql
-│   ├── 002_seed_data.sql
-│   └── README.md
-├── apis/
-│   └── v1/
-│       ├── urls.py
-│       ├── posts.py
-│       └── users.py
-├── services/
-│   └── post_service.py/
-├── requirements.txt
-└── README.md
-```
-
-**Architecture layers:**
-- **Models**: Django ORM (database)
-- **Services**: Business logic and data operations
-- **API**: Django views (JSON responses)
-- **Core**: Configuration and shared utilities
-
-Flow :
-```
-API → Services → Models
-```
+1. Create a project at [supabase.com](https://supabase.com)
+2. Enable **Google** and **LinkedIn (OIDC)** providers under Authentication > Providers
+3. Configure OAuth credentials from [Google Cloud Console](https://console.cloud.google.com) and [LinkedIn Developers](https://www.linkedin.com/developers/apps)
+4. Set the Supabase callback URL as the redirect URI in both providers:
+   ```
+   https://<your-project>.supabase.co/auth/v1/callback
+   ```
+5. In Supabase Authentication > URL Configuration:
+   - Site URL: `https://scholr-beryl.vercel.app`
+   - Redirect URLs: `https://scholr-beryl.vercel.app/auth/callback`, `http://localhost:5173/auth/callback`
 
 ---
 
 ## API Endpoints
 
-**Current:**
-* GET `/api/v1/posts` - Get all posts
-* GET `/api/v1/posts/{id}` - Get specific post
-* POST `/api/v1/posts` - Create post
-* PUT `/api/v1/posts/{id}` - Update post
-* DELETE `/api/v1/posts/{id}` - Delete post
-* GET `/health` - Health check
+### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/accounts/login/` | Login with username/password |
+| POST | `/api/accounts/logout/` | Revoke auth token |
+| POST | `/api/accounts/oauth/callback/` | Exchange Supabase token for local token |
+| GET | `/api/accounts/me/` | Get current authenticated user |
+| GET | `/api/accounts/roles/` | List available roles |
+| GET | `/api/accounts/switchable-roles/` | Get roles current user can switch to |
 
-**Planned:**
-* POST `/api/v1/auth/login` - User login
-* POST `/api/v1/auth/signup` - User registration
-* GET `/api/v1/users/{id}` - Get user profile
-* POST `/api/v1/votes` - Vote on post
-* POST `/api/v1/reports` - Report post
-* GET `/api/v1/topics` - Get all topics
+### Users
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/accounts/users/` | List all users |
+| POST | `/api/accounts/users/` | Create new user (signup) |
+| GET | `/api/accounts/users/:id/` | Get user profile |
+| PATCH | `/api/accounts/users/:id/` | Update user profile |
+
+### Posts
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/posts/` | List all posts |
+| POST | `/api/posts/` | Create a post |
+| GET | `/api/posts/:id/` | Get post details |
+| DELETE | `/api/posts/:id/` | Delete a post |
+
+### Topics
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/topics/` | List all topics |
+| POST | `/api/topics/` | Create a topic |
+
+### Interactions
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/posts/:id/vote/` | Vote on a post |
+| POST | `/api/posts/:id/report/` | Report a post |
+| GET | `/api/posts/:id/comments/` | List comments on a post |
+| POST | `/api/posts/:id/comments/` | Add a comment |
+| DELETE | `/api/comments/:id/` | Delete a comment |
+| GET | `/api/reports/` | List all reports |
+
+### Health
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health/` | Server health check |
 
 ---
 
-## Development Notes
+## Project Structure
 
-**Frontend runs separately during development:**
-* Frontend: `http://localhost:5173` (Vite dev server)
-* Backend exposes REST APIs
-* Communication via fetch / HTTP
-* CORS enabled for cross-origin requests
+```
+WPL_Project/
+├── backend/
+│   ├── accounts/          # User auth, OAuth, roles
+│   │   ├── models.py      # PlatformUser, AuthToken
+│   │   ├── views.py       # Login, signup, OAuth, /me
+│   │   ├── auth.py        # Token validation, role switching
+│   │   └── urls.py
+│   ├── posts/             # Topics and posts CRUD
+│   ├── interactions/      # Votes, comments, reports
+│   ├── backend/           # Django settings, root URLs
+│   ├── requirements.txt
+│   ├── manage.py
+│   └── .env.example
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx        # Main app, routing, session mgmt
+│   │   ├── api.js         # Centralized API client
+│   │   ├── supabase.js    # Supabase client for OAuth
+│   │   └── pages/
+│   │       ├── Home.jsx
+│   │       ├── Login.jsx
+│   │       ├── Signup.jsx
+│   │       ├── AuthCallback.jsx
+│   │       ├── PostDetail.jsx
+│   │       ├── Profile.jsx
+│   │       └── Settings.jsx
+│   ├── .env.example
+│   ├── .env.development
+│   ├── .env.production
+│   ├── package.json
+│   └── vite.config.js
+└── .gitignore
+```
 
-**Database:**
-* PostgreSQL for production
-* SQLite for quick local development
-* Django ORM handles migrations
+---
 
-**Architecture:**
-* Layered structure: API → Services → Models
-* Dependency injection for database sessions
-* Versioned API routes (/api/v1/)
-* Centralized configuration management
+## Deployment
 
-**Testing:**
-* Interactive API docs at `/docs`
-* Health check endpoint at `/health`
-* Pre-seeded test data for development
+```
+Vercel (React frontend)
+    ↓ API calls
+Render (Django backend)
+    ↓
+Supabase (PostgreSQL + OAuth)
+```
+
+**Vercel** auto-deploys on push to `main`. Root directory set to `frontend`.
+
+**Render** auto-deploys on push to `main`. Environment variables configured in dashboard.
+
+**Supabase** handles OAuth providers and can serve as the production database.
 
 ---
 
 ## Team
 
-**Backend:** Gitaansh  
-**Frontend:** Satyam
-
----
-
-## Current Status
-
-**In Progress:**
-- Backend API development
-- PostgreSQL database integration
-- Authentication endpoints
-- Full CRUD operations
-
-**Planned:**
-- Real-time voting system
-- User profiles and settings
-- Advanced moderation tools
-- Feed sorting algorithms
-- Image and video support
-
----
-
-## Key Features by Role
-
-| Feature | General User | Verified User | Moderator | Developer | Administrator |
-|---------|--------------|---------------|-----------|-----------|---------------|
-| View posts | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Create posts | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Vote on posts | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Report posts | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Delete posts | ❌ | Own only | Any | Any | Any |
-| Warn users | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Ban users | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Manage topics | ❌ | ❌ | ❌ | ✅ | ✅ |
-| System config | ❌ | ❌ | ❌ | ✅ | ✅ |
-
----
-
-## Resources
-
-* [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-* [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
-* [React Documentation](https://react.dev/)
-* [Vite Documentation](https://vitejs.dev/)
-
----
-
-## Deployment Strategy 
-
-```
-React App (Vercel) / Netlify (no react)
-        ↓ API calls
-Django API (Render/Railway)
-        ↓
-PostgreSQL
-        ↓
-Cloudinary / Supabase
-```
+| Name | Role |
+|------|------|
+| **Gitaansh** | Backend |
+| **Satyam** | Frontend |
 
 ---
 
 ## License
 
-This project is in development. License TBD.
+This project is in active development. License TBD.
