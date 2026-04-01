@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, ThumbsUp, ThumbsDown, User, Calendar, FileText, Trash2 } from 'lucide-react';
-
-const API_BASE = 'http://localhost:8000/api';
+import * as API from '../api';
 
 function formatDateTime(isoTime) {
     if (!isoTime) {
@@ -35,11 +34,10 @@ export default function PostDetail({ posts, currentUser, onVote }) {
         }
         setIsLoadingComments(true);
         try {
-            const response = await fetch(`${API_BASE}/posts/${post.id}/comments/`);
-            const data = await response.json();
-            if (response.ok) {
-                setComments(data.results || []);
-            }
+            const data = await API.fetchComments(post.id);
+            setComments(data.results || []);
+        } catch {
+            return;
         } finally {
             setIsLoadingComments(false);
         }
@@ -59,33 +57,22 @@ export default function PostDetail({ posts, currentUser, onVote }) {
             return;
         }
 
-        const response = await fetch(`${API_BASE}/posts/${post.id}/comments/`, {
-            method: 'POST',
-            headers: authHeaders(true),
-            body: JSON.stringify({ content: commentText.trim() }),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-            alert(data.detail || 'Unable to add comment.');
-            return;
+        try {
+            const data = await API.createComment(post.id, { content: commentText.trim() }, authHeaders(true));
+            setComments((prev) => [...prev, data]);
+            setCommentText('');
+        } catch (error) {
+            alert('Unable to add comment.');
         }
-
-        setComments((prev) => [...prev, data]);
-        setCommentText('');
     };
 
     const handleDeleteComment = async (commentId) => {
-        const response = await fetch(`${API_BASE}/comments/${commentId}/`, {
-            method: 'DELETE',
-            headers: authHeaders(),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-            alert(data.detail || 'Unable to delete comment.');
-            return;
+        try {
+            await API.deleteComment(commentId, authHeaders());
+            setComments((prev) => prev.filter((comment) => comment.id !== commentId));
+        } catch (error) {
+            alert('Unable to delete comment.');
         }
-
-        setComments((prev) => prev.filter((comment) => comment.id !== commentId));
     };
 
     if (!post) {

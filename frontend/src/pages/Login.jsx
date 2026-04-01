@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Sparkles, User, Lock, AlertCircle } from 'lucide-react';
-
-const API_LOGIN = 'http://localhost:8000/api/accounts/login/';
+import * as API from '../api';
 
 const QUICK_LOGINS = [
     { username: 'admin', password: 'admin', role: 'Administrator' },
@@ -23,23 +22,14 @@ export default function Login({ onLogin }) {
         setError('');
         setIsLoading(true);
         try {
-            const response = await fetch(API_LOGIN, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: loginUsername, password: loginPassword }),
-            });
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.detail || 'Invalid username or password.');
-                return;
-            }
+            const data = await API.login(loginUsername, loginPassword);
             if (!data.token) {
                 setError('Login succeeded but no token was returned.');
                 return;
             }
             onLogin(data);
             navigate('/');
-        } catch {
+        } catch (err) {
             setError('Backend server is unavailable. Start Django server and try again.');
         } finally {
             setIsLoading(false);

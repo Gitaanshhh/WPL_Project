@@ -2,7 +2,7 @@ from django.db.models import Sum
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from accounts.auth import get_authenticated_user, parse_json_body
+from accounts.auth import get_authenticated_user, get_effective_role, parse_json_body
 from accounts.models import PlatformUser
 from interactions.models import Vote
 
@@ -32,8 +32,8 @@ def _post_to_dict(post, viewer_id=None):
     }
 
 
-def _is_privileged(user):
-    return user and user.role in {
+def _is_privileged_role(role):
+    return role in {
         PlatformUser.ROLE_ADMIN,
         PlatformUser.ROLE_DEVELOPER,
         PlatformUser.ROLE_MODERATOR,
@@ -65,7 +65,8 @@ def topics_collection(request):
             return JsonResponse({'detail': 'Invalid JSON payload.'}, status=400)
 
         actor = get_authenticated_user(request)
-        if not actor or actor.role != PlatformUser.ROLE_ADMIN:
+        actor_role = get_effective_role(request, actor)
+        if not actor or actor_role != PlatformUser.ROLE_ADMIN:
             return JsonResponse({'detail': 'Only administrators can create topics.'}, status=403)
 
         name = (payload.get('name') or '').strip()
@@ -117,7 +118,8 @@ def posts_collection(request):
         if not author:
             return JsonResponse({'detail': 'Authentication required.'}, status=401)
 
-        if not _is_privileged(author):
+        author_role = get_effective_role(request, author)
+        if not _is_privileged_role(author_role):
             return JsonResponse({'detail': 'Your role is read-only and cannot create posts.'}, status=403)
 
         topic = None
@@ -155,7 +157,8 @@ def post_detail(request, post_id):
         actor = get_authenticated_user(request)
         if not actor:
             return JsonResponse({'detail': 'Authentication required.'}, status=401)
-        if actor.id != post.author_id and actor.role not in {
+        actor_role = get_effective_role(request, actor)
+        if actor.id != post.author_id and actor_role not in {
             PlatformUser.ROLE_ADMIN,
             PlatformUser.ROLE_DEVELOPER,
             PlatformUser.ROLE_MODERATOR,
@@ -176,7 +179,8 @@ def post_detail(request, post_id):
         actor = get_authenticated_user(request)
         if not actor:
             return JsonResponse({'detail': 'Authentication required.'}, status=401)
-        if actor.id != post.author_id and actor.role not in {
+        actor_role = get_effective_role(request, actor)
+        if actor.id != post.author_id and actor_role not in {
             PlatformUser.ROLE_ADMIN,
             PlatformUser.ROLE_DEVELOPER,
             PlatformUser.ROLE_MODERATOR,

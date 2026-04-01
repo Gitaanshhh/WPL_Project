@@ -2,7 +2,7 @@ from django.db.models import Sum
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from accounts.auth import get_authenticated_user, parse_json_body
+from accounts.auth import get_authenticated_user, get_effective_role, parse_json_body
 from accounts.models import PlatformUser
 from posts.models import Post
 
@@ -21,6 +21,7 @@ def vote_on_post(request, post_id):
     user = get_authenticated_user(request)
     if not user:
         return JsonResponse({'detail': 'Authentication required.'}, status=401)
+    user_role = get_effective_role(request, user)
 
     value = payload.get('value')
     if value not in [Vote.UPVOTE, Vote.DOWNVOTE]:
@@ -30,7 +31,7 @@ def vote_on_post(request, post_id):
     if not post:
         return JsonResponse({'detail': 'Post not found.'}, status=404)
 
-    if user.role == PlatformUser.ROLE_GENERAL:
+    if user_role == PlatformUser.ROLE_GENERAL:
         return JsonResponse({'detail': 'General users cannot vote. Upgrade to vote.', 'code': 'voting_not_allowed'}, status=403)
 
     Vote.objects.update_or_create(user=user, post=post, defaults={'value': value})
@@ -50,6 +51,7 @@ def report_post(request, post_id):
     user = get_authenticated_user(request)
     if not user:
         return JsonResponse({'detail': 'Authentication required.'}, status=401)
+    user_role = get_effective_role(request, user)
 
     reason = payload.get('reason', '').strip()
     if not reason:
@@ -59,7 +61,7 @@ def report_post(request, post_id):
     if not post:
         return JsonResponse({'detail': 'Post not found.'}, status=404)
 
-    if user.role == PlatformUser.ROLE_GENERAL:
+    if user_role == PlatformUser.ROLE_GENERAL:
         return JsonResponse({'detail': 'General users cannot submit reports.', 'code': 'report_not_allowed'}, status=403)
 
     report = Report.objects.create(reporter=user, post=post, reason=reason)
@@ -101,7 +103,8 @@ def comments_collection(request, post_id):
         actor = get_authenticated_user(request)
         if not actor:
             return JsonResponse({'detail': 'Authentication required.'}, status=401)
-        if actor.role == PlatformUser.ROLE_GENERAL:
+        actor_role = get_effective_role(request, actor)
+        if actor_role == PlatformUser.ROLE_GENERAL:
             return JsonResponse({'detail': 'General users cannot comment.'}, status=403)
 
         payload = parse_json_body(request)
@@ -138,8 +141,9 @@ def comment_detail(request, comment_id):
         actor = get_authenticated_user(request)
         if not actor:
             return JsonResponse({'detail': 'Authentication required.'}, status=401)
+        actor_role = get_effective_role(request, actor)
 
-        if actor.id != comment.author_id and actor.role not in [
+        if actor.id != comment.author_id and actor_role not in [
             PlatformUser.ROLE_ADMIN,
             PlatformUser.ROLE_DEVELOPER,
             PlatformUser.ROLE_MODERATOR,

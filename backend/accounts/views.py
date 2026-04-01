@@ -4,7 +4,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import check_password, make_password
 
-from .auth import get_authenticated_user, get_bearer_token
+from .auth import get_allowed_role_switch_targets, get_authenticated_user, get_bearer_token, get_effective_role
 from .models import PlatformUser
 from .models import AuthToken
 
@@ -44,6 +44,23 @@ def role_options(request):
 
 	roles = [choice[0] for choice in PlatformUser.ROLE_CHOICES]
 	return JsonResponse({'roles': roles})
+
+
+def switchable_roles(request):
+	if request.method != 'GET':
+		return JsonResponse({'detail': 'Method not allowed.'}, status=405)
+
+	actor = get_authenticated_user(request)
+	if not actor:
+		return JsonResponse({'detail': 'Authentication required.'}, status=401)
+
+	return JsonResponse(
+		{
+			'base_role': actor.role,
+			'effective_role': get_effective_role(request, actor),
+			'allowed_roles': get_allowed_role_switch_targets(actor),
+		}
+	)
 
 
 @csrf_exempt
@@ -162,7 +179,8 @@ def user_detail(request, user_id):
 		actor = get_authenticated_user(request)
 		if not actor:
 			return JsonResponse({'detail': 'Authentication required.'}, status=401)
-		if actor.id != user.id and actor.role not in [PlatformUser.ROLE_ADMIN, PlatformUser.ROLE_DEVELOPER]:
+		actor_role = get_effective_role(request, actor)
+		if actor.id != user.id and actor_role not in [PlatformUser.ROLE_ADMIN, PlatformUser.ROLE_DEVELOPER]:
 			return JsonResponse({'detail': 'You do not have permission to update this profile.'}, status=403)
 
 		try:

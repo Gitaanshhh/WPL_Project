@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { User, Calendar, Shield, Users, Code, CheckCircle } from 'lucide-react';
-
-const API_USERS = 'http://localhost:8000/api/accounts/users/';
+import * as API from '../api';
 
 function formatJoinDate(isoTime) {
     if (!isoTime) {
@@ -70,22 +69,16 @@ export default function Profile({ currentUser, posts, onUserUpdate }) {
         e.preventDefault();
         setMessage('');
 
-        const response = await fetch(`${API_USERS}${currentUser.id}/`, {
-            method: 'PATCH',
-            headers: {
+        try {
+            const data = await API.updateUser(currentUser.id, form, {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${currentUser.token}`,
-            },
-            body: JSON.stringify(form),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-            setMessage(data.detail || 'Unable to save profile updates.');
-            return;
+            });
+            onUserUpdate({ ...currentUser, ...form });
+            setMessage('Profile updated.');
+        } catch (error) {
+            setMessage('Unable to save profile updates.');
         }
-
-        onUserUpdate({ ...currentUser, ...form });
-        setMessage('Profile updated.');
     };
 
     return (

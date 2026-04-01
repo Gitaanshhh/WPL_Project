@@ -24,11 +24,21 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import * as API from './api';
 import './index.css';
-
-const API_BASE = 'http://localhost:8000/api';
 const USER_STORAGE_KEY = 'scholr_current_user';
 const THEME_STORAGE_KEY = 'scholr_theme';
+const ALL_ROLES = ['Administrator', 'Developer', 'Moderator', 'Verified User', 'General User'];
+
+function getSwitchableRoles(baseRole) {
+    if (baseRole === 'Administrator') {
+        return ALL_ROLES;
+    }
+    if (baseRole === 'Developer') {
+        return ['Verified User', 'General User'];
+    }
+    return [];
+}
 
 function App() {
     const [currentUser, setCurrentUser] = useState(null);
@@ -40,8 +50,10 @@ function App() {
     const [isLoadingPosts, setIsLoadingPosts] = useState(false);
     const [theme, setTheme] = useState(() => localStorage.getItem(THEME_STORAGE_KEY) || 'light');
 
-    const role = currentUser?.role || 'General User';
+    const role = currentUser?.acting_role || currentUser?.role || 'General User';
     const isLoggedIn = Boolean(currentUser);
+    const switchableRoles = getSwitchableRoles(currentUser?.role).filter((roleName) => roleName !== currentUser?.role);
+    const canSwitchRole = isLoggedIn && switchableRoles.length > 0;
 
     const authHeaders = (hasJson = false) => {
         const headers = {};
@@ -51,28 +63,28 @@ function App() {
         if (currentUser?.token) {
             headers.Authorization = `Bearer ${currentUser.token}`;
         }
+        if (currentUser?.acting_role) {
+            headers['X-Acting-Role'] = currentUser.acting_role;
+        }
         return headers;
     };
 
     const fetchTopics = async () => {
-        const response = await fetch(`${API_BASE}/topics/`);
-        if (!response.ok) {
+        try {
+            const data = await API.fetchTopics();
+            setTopics(data.results || []);
+        } catch {
             return;
         }
-        const data = await response.json();
-        setTopics(data.results || []);
     };
 
     const fetchPosts = async (userId = currentUser?.id) => {
         setIsLoadingPosts(true);
         try {
-            const url = userId ? `${API_BASE}/posts/?viewer_id=${userId}` : `${API_BASE}/posts/`;
-            const response = await fetch(url);
-            if (!response.ok) {
-                return;
-            }
-            const data = await response.json();
+            const data = await API.fetchPosts(userId);
             setPosts(data.results || []);
+        } catch {
+            return;
         } finally {
             setIsLoadingPosts(false);
         }
@@ -132,26 +144,21 @@ function App() {
             return false;
         }
 
-        const response = await fetch(`${API_BASE}/posts/`, {
-            method: 'POST',
-            headers: authHeaders(true),
-            body: JSON.stringify({
+        try {
+            const data = await API.createPost({
                 title: formData.title,
                 content: formData.content,
                 references: formData.refs,
                 topic_id: formData.topic_id || null,
-            }),
-        });
+            }, authHeaders(true));
 
-        const data = await response.json();
-        if (!response.ok) {
-            alert(data.detail || 'Unable to publish post.');
+            setPosts((prev) => [data, ...prev]);
+            setFormData({ title: '', topic_id: '', content: '', refs: '' });
+            return true;
+        } catch (error) {
+            alert('Unable to publish post.');
             return false;
         }
-
-        setPosts((prev) => [data, ...prev]);
-        setFormData({ title: '', topic_id: '', content: '', refs: '' });
-        return true;
     };
 
     const handleDelete = async (id) => {
@@ -159,17 +166,12 @@ function App() {
             return;
         }
 
-        const response = await fetch(`${API_BASE}/posts/${id}/`, {
-            method: 'DELETE',
-            headers: authHeaders(),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-            alert(data.detail || 'Unable to delete post.');
-            return;
+        try {
+            await API.deletePost(id, authHeaders());
+            setPosts((prev) => prev.filter((post) => post.id !== id));
+        } catch (error) {
+            alert('Unable to delete post.');
         }
-
-        setPosts((prev) => prev.filter((post) => post.id !== id));
     };
 
     const handleVote = async (postId, value) => {
@@ -178,29 +180,23 @@ function App() {
             return;
         }
 
-        const response = await fetch(`${API_BASE}/posts/${postId}/vote/`, {
-            method: 'POST',
-            headers: authHeaders(true),
-            body: JSON.stringify({ value }),
-        });
-        const data = await response.json();
+        try {
+            const data = await API.votePost(postId, { value }, authHeaders(true));
 
-        if (!response.ok) {
-            alert(data.detail || 'Vote failed.');
-            return;
+            setPosts((prev) =>
+                prev.map((post) =>
+                    post.id === postId
+                        ? {
+                              ...post,
+                              score: data.score,
+                              user_vote: data.user_vote,
+                          }
+                        : post
+                )
+            );
+        } catch (error) {
+            alert('Vote failed.');
         }
-
-        setPosts((prev) =>
-            prev.map((post) =>
-                post.id === postId
-                    ? {
-                          ...post,
-                          score: data.score,
-                          user_vote: data.user_vote,
-                      }
-                    : post
-            )
-        );
     };
 
     const handleCreateTopic = async ({ name, parent_id }) => {
@@ -209,37 +205,47 @@ function App() {
             return false;
         }
 
-        const response = await fetch(`${API_BASE}/topics/`, {
-            method: 'POST',
-            headers: authHeaders(true),
-            body: JSON.stringify({
+        try {
+            const data = await API.createTopic({
                 name,
                 parent_id: parent_id || null,
-            }),
-        });
+            }, authHeaders(true));
 
-        const data = await response.json();
-        if (!response.ok) {
-            alert(data.detail || 'Unable to create topic.');
+            setTopics((prev) => [...prev, data]);
+            return true;
+        } catch (error) {
+            alert('Unable to create topic.');
             return false;
         }
-
-        setTopics((prev) => [...prev, data]);
-        return true;
     };
 
     const handleLoginSuccess = (user) => {
-        setCurrentUser(user);
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+        const normalizedUser = {
+            ...user,
+            original_role: user.original_role || user.role,
+            acting_role: user.acting_role || null,
+        };
+        setCurrentUser(normalizedUser);
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(normalizedUser));
+    };
+
+    const handleRoleSwitch = (nextRole) => {
+        if (!currentUser) {
+            return;
+        }
+
+        const updatedUser = {
+            ...currentUser,
+            acting_role: nextRole || null,
+        };
+        setCurrentUser(updatedUser);
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
     };
 
     const handleLogout = async () => {
         if (currentUser?.token) {
             try {
-                await fetch(`${API_BASE}/accounts/logout/`, {
-                    method: 'POST',
-                    headers: authHeaders(),
-                });
+                await API.logout(authHeaders());
             } catch {
                 // Ignore network failures and clear client session anyway.
             }
@@ -340,6 +346,21 @@ function App() {
                                                 {getRoleIcon(role)}
                                                 <span>{role}</span>
                                             </div>
+                                            {canSwitchRole && (
+                                                <select
+                                                    value={currentUser?.acting_role || ''}
+                                                    onChange={(e) => handleRoleSwitch(e.target.value)}
+                                                    className="text-sm border border-academic-200 rounded-lg px-2 py-1 bg-white text-academic-700"
+                                                    title="Switch role simulation"
+                                                >
+                                                    <option value="">Use {currentUser.role}</option>
+                                                    {switchableRoles.map((roleOption) => (
+                                                        <option key={roleOption} value={roleOption}>
+                                                            Use {roleOption}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
                                             <div className="flex items-center space-x-2">
                                                 <Link to="/profile" className="btn btn-ghost" title="Profile">
                                                     <UserIcon className="w-4 h-4" />

@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const API_USERS = 'http://localhost:8000/api/accounts/users/';
-const API_LOGIN = 'http://localhost:8000/api/accounts/login/';
+import * as API from '../api';
 
 export default function Signup({ onLogin }) {
     const navigate = useNavigate();
@@ -23,39 +21,20 @@ export default function Signup({ onLogin }) {
         setIsLoading(true);
 
         try {
-            const createResponse = await fetch(API_USERS, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: form.username,
-                    email: form.email,
-                    full_name: form.full_name,
-                    password: form.password,
-                    institution: form.institution,
-                    bio: form.bio,
-                    role: 'General User',
-                }),
+            const createData = await API.signup({
+                username: form.username,
+                email: form.email,
+                full_name: form.full_name,
+                password: form.password,
+                institution: form.institution,
+                bio: form.bio,
+                role: 'General User',
             });
-            const createData = await createResponse.json();
-            if (!createResponse.ok) {
-                setError(createData.detail || 'Unable to create account.');
-                return;
-            }
 
-            const loginResponse = await fetch(API_LOGIN, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: form.username, password: form.password }),
-            });
-            const loginData = await loginResponse.json();
-            if (!loginResponse.ok) {
-                setError(loginData.detail || 'Account created, but auto login failed.');
-                return;
-            }
-
+            const loginData = await API.login(form.username, form.password);
             onLogin(loginData);
             navigate('/');
-        } catch {
+        } catch (err) {
             setError('Backend server is unavailable. Start Django server and try again.');
         } finally {
             setIsLoading(false);
