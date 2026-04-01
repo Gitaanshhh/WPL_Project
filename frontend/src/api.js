@@ -1,96 +1,132 @@
 // Centralized API configuration
-// Uses VITE_API_URL from environment variables (or defaults to localhost for development)
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// Accepts either:
+// - VITE_API_URL=https://service.onrender.com
+// - VITE_API_URL=https://service.onrender.com/api
+const RAW_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+function normalizeBaseUrl(url) {
+  const trimmed = String(url || '').trim().replace(/\/+$/, '');
+  if (!trimmed) {
+    return 'http://localhost:8000/api';
+  }
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+}
+
+const BASE_URL = normalizeBaseUrl(RAW_BASE_URL);
+
+async function parseResponse(response) {
+  const contentType = response.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    const data = await response.json();
+    if (!response.ok) {
+      const message = data?.detail || data?.error || `Request failed with status ${response.status}`;
+      throw new Error(message);
+    }
+    return data;
+  }
+
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(text || `Request failed with status ${response.status}`);
+  }
+  return text;
+}
+
+async function request(path, options = {}) {
+  const response = await fetch(`${BASE_URL}${path}`, options);
+  return parseResponse(response);
+}
 
 // ============ TOPICS ============
 export const fetchTopics = () =>
-  fetch(`${BASE_URL}/topics/`).then(r => r.json());
+  request('/topics/');
 
 export const createTopic = (topicData, authHeaders) =>
-  fetch(`${BASE_URL}/topics/`, {
+  request('/topics/', {
     method: 'POST',
     headers: authHeaders,
     body: JSON.stringify(topicData),
-  }).then(r => r.json());
+  });
 
 // ============ POSTS ============
 export const fetchPosts = (userId = null) => {
   const url = userId 
-    ? `${BASE_URL}/posts/?viewer_id=${userId}` 
-    : `${BASE_URL}/posts/`;
-  return fetch(url).then(r => r.json());
+    ? `/posts/?viewer_id=${userId}` 
+    : '/posts/';
+  return request(url);
 };
 
 export const createPost = (postData, authHeaders) =>
-  fetch(`${BASE_URL}/posts/`, {
+  request('/posts/', {
     method: 'POST',
     headers: authHeaders,
     body: JSON.stringify(postData),
-  }).then(r => r.json());
+  });
 
 export const deletePost = (postId, authHeaders) =>
-  fetch(`${BASE_URL}/posts/${postId}/`, {
+  request(`/posts/${postId}/`, {
     method: 'DELETE',
     headers: authHeaders,
   });
 
 export const votePost = (postId, voteData, authHeaders) =>
-  fetch(`${BASE_URL}/posts/${postId}/vote/`, {
+  request(`/posts/${postId}/vote/`, {
     method: 'POST',
     headers: authHeaders,
     body: JSON.stringify(voteData),
-  }).then(r => r.json());
+  });
 
 // ============ COMMENTS ============
 export const fetchComments = (postId) =>
-  fetch(`${BASE_URL}/posts/${postId}/comments/`).then(r => r.json());
+  request(`/posts/${postId}/comments/`);
 
 export const createComment = (postId, commentData, authHeaders) =>
-  fetch(`${BASE_URL}/posts/${postId}/comments/`, {
+  request(`/posts/${postId}/comments/`, {
     method: 'POST',
     headers: authHeaders,
     body: JSON.stringify(commentData),
-  }).then(r => r.json());
+  });
 
 export const deleteComment = (commentId, authHeaders) =>
-  fetch(`${BASE_URL}/comments/${commentId}/`, {
+  request(`/comments/${commentId}/`, {
     method: 'DELETE',
     headers: authHeaders,
   });
 
 // ============ AUTHENTICATION ============
 export const login = (username, password) =>
-  fetch(`${BASE_URL}/accounts/login/`, {
+  request('/accounts/login/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
-  }).then(r => r.json());
+  });
 
 export const signup = (userData) =>
-  fetch(`${BASE_URL}/accounts/users/`, {
+  request('/accounts/users/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(userData),
-  }).then(r => r.json());
+  });
 
 export const logout = (authHeaders) =>
-  fetch(`${BASE_URL}/accounts/logout/`, {
+  request('/accounts/logout/', {
     method: 'POST',
     headers: authHeaders,
   });
 
 // ============ USERS ============
 export const getUser = (userId, authHeaders) =>
-  fetch(`${BASE_URL}/accounts/users/${userId}/`, {
+  request(`/accounts/users/${userId}/`, {
     method: 'GET',
     headers: authHeaders,
-  }).then(r => r.json());
+  });
 
 export const updateUser = (userId, userData, authHeaders) =>
-  fetch(`${BASE_URL}/accounts/users/${userId}/`, {
+  request(`/accounts/users/${userId}/`, {
     method: 'PATCH',
     headers: authHeaders,
     body: JSON.stringify(userData),
-  }).then(r => r.json());
+  });
 
 export { BASE_URL };

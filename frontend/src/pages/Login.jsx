@@ -30,7 +30,7 @@ export default function Login({ onLogin }) {
             onLogin(data);
             navigate('/');
         } catch (err) {
-            setError('Backend server is unavailable. Start Django server and try again.');
+            setError(err?.message || 'Unable to reach backend. Check VITE_API_URL and Render health endpoint.');
         } finally {
             setIsLoading(false);
         }
