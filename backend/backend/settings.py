@@ -132,9 +132,14 @@ else:
 #     "https://your-app.vercel.app",  # update after Vercel deploy
 # ]
 
+_frontend_url = os.environ.get("FRONTEND_URL", "").strip()
 CORS_ALLOWED_ORIGINS = [
-    os.environ.get("FRONTEND_URL"),  # production (Vercel)
-    "http://localhost:3000",         # local dev (React/Next)
+    origin
+    for origin in [
+        _frontend_url,                # production (Vercel)
+        "http://localhost:3000",     # local dev (React/Next)
+    ]
+    if isinstance(origin, str) and origin
 ]
 
 # Password validation
