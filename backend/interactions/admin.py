@@ -12,9 +12,9 @@ class VoteAdmin(admin.ModelAdmin):
 
 @admin.register(Report)
 class ReportAdmin(admin.ModelAdmin):
-	list_display = ('id', 'reporter', 'post', 'status', 'created_at')
-	list_filter = ('status',)
-	search_fields = ('reason', 'reporter__username', 'post__title')
+	list_display = ('id', 'target_type', 'reporter', 'post', 'reported_user', 'status', 'created_at')
+	list_filter = ('status', 'target_type')
+	search_fields = ('reason', 'reporter__username', 'post__title', 'reported_user__username')
 
 
 @admin.register(Comment)

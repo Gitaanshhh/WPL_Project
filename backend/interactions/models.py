@@ -25,6 +25,13 @@ class Vote(models.Model):
 
 
 class Report(models.Model):
+	TARGET_POST = 'post'
+	TARGET_USER = 'user'
+	TARGET_CHOICES = [
+		(TARGET_POST, 'Post'),
+		(TARGET_USER, 'User'),
+	]
+
 	STATUS_PENDING = 'pending'
 	STATUS_RESOLVED = 'resolved'
 	STATUS_REJECTED = 'rejected'
@@ -36,7 +43,9 @@ class Report(models.Model):
 	]
 
 	reporter = models.ForeignKey(PlatformUser, on_delete=models.CASCADE, related_name='reports')
-	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='reports')
+	target_type = models.CharField(max_length=20, choices=TARGET_CHOICES, default=TARGET_POST)
+	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='reports', null=True, blank=True)
+	reported_user = models.ForeignKey(PlatformUser, on_delete=models.CASCADE, related_name='reported_accounts', null=True, blank=True)
 	reason = models.TextField()
 	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
 	created_at = models.DateTimeField(auto_now_add=True)
@@ -46,7 +55,7 @@ class Report(models.Model):
 		ordering = ['-created_at']
 
 	def __str__(self):
-		return f"Report #{self.id} - {self.status}"
+		return f"Report #{self.id} - {self.target_type} - {self.status}"
 
 
 class Comment(models.Model):

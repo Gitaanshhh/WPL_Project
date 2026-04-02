@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, Calendar, Shield, Users, Code, CheckCircle, Mail, Phone, ExternalLink } from 'lucide-react';
+import { User, Calendar, Shield, Users, Code, CheckCircle, Mail, Phone, ExternalLink, Flag } from 'lucide-react';
 import * as API from '../api';
 
 function formatJoinDate(isoTime) {
@@ -23,12 +23,15 @@ function LinkBadge({ name, url }) {
     );
 }
 
-export default function PublicProfile({ posts }) {
+export default function PublicProfile({ posts, currentUser }) {
     const { username } = useParams();
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
+    const [showReportForm, setShowReportForm] = useState(false);
+    const [reportReason, setReportReason] = useState('');
+    const [reportMessage, setReportMessage] = useState('');
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -109,6 +112,33 @@ export default function PublicProfile({ posts }) {
     }
 
     const links = user.links || {};
+    const canReport = Boolean(currentUser && (currentUser.acting_role || currentUser.role) !== 'General User');
+
+    const handleReportUser = async (e) => {
+        e.preventDefault();
+        if (!canReport) {
+            setReportMessage('Only verified users can submit reports.');
+            return;
+        }
+
+        const reason = reportReason.trim();
+        if (!reason) {
+            setReportMessage('Please describe why you are reporting this account.');
+            return;
+        }
+
+        try {
+            await API.reportUser(user.id, { reason }, {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentUser.token}`,
+            });
+            setReportReason('');
+            setShowReportForm(false);
+            setReportMessage('Report submitted.');
+        } catch (err) {
+            setReportMessage(err?.message || 'Unable to submit report.');
+        }
+    };
 
     return (
         <div className="profile-page max-w-4xl mx-auto space-y-6">
@@ -118,9 +148,17 @@ export default function PublicProfile({ posts }) {
 
             <div className="card">
                 <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-6">
-                    <div className="w-24 h-24 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center shadow-lg">
-                        <User className="w-12 h-12 text-white" />
-                    </div>
+                    {user?.profile_picture ? (
+                        <img
+                            src={user.profile_picture}
+                            alt={user.full_name}
+                            className="w-24 h-24 rounded-full object-cover shadow-lg"
+                        />
+                    ) : (
+                        <div className="w-24 h-24 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center shadow-lg">
+                            <User className="w-12 h-12 text-white" />
+                        </div>
+                    )}
 
                     <div className="flex-1">
                         <h1 className="text-3xl font-bold text-academic-900 mb-2">{user.full_name}</h1>
@@ -152,6 +190,16 @@ export default function PublicProfile({ posts }) {
                                     {user.phone_number}
                                 </a>
                             )}
+                            {canReport && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowReportForm((prev) => !prev)}
+                                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-amber-200 text-sm text-amber-700 hover:bg-amber-50"
+                                >
+                                    <Flag className="w-4 h-4" />
+                                    Report account
+                                </button>
+                            )}
                         </div>
 
                         {Object.entries(links).some(([_, url]) => url) && (
@@ -161,6 +209,24 @@ export default function PublicProfile({ posts }) {
                                 )}
                             </div>
                         )}
+
+                        {showReportForm && canReport && (
+                            <form onSubmit={handleReportUser} className="mt-4 space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                                <label className="block text-sm font-medium text-academic-800">Why are you reporting this account?</label>
+                                <textarea
+                                    rows={4}
+                                    className="textarea"
+                                    value={reportReason}
+                                    onChange={(e) => setReportReason(e.target.value)}
+                                    placeholder="Describe the issue..."
+                                />
+                                <div className="flex items-center gap-3">
+                                    <button type="submit" className="btn btn-primary">Submit report</button>
+                                    <button type="button" className="btn btn-outline" onClick={() => setShowReportForm(false)}>Cancel</button>
+                                </div>
+                            </form>
+                        )}
+                        {reportMessage && <div className="text-sm text-academic-700 mt-3">{reportMessage}</div>}
                     </div>
                 </div>
             </div>

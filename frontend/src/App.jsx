@@ -22,6 +22,7 @@ import Home from './pages/Home';
 import PostDetail from './pages/PostDetail';
 import Profile from './pages/Profile';
 import PublicProfile from './pages/PublicProfile';
+import ModerationReports from './pages/ModerationReports';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -57,6 +58,7 @@ function App() {
     const isLoggedIn = Boolean(currentUser);
     const switchableRoles = getSwitchableRoles(currentUser?.role).filter((roleName) => roleName !== currentUser?.role);
     const canSwitchRole = isLoggedIn && switchableRoles.length > 0;
+    const canModerateReports = ['Administrator', 'Developer', 'Moderator'].includes(role);
 
     const authHeaders = (hasJson = false) => {
         const headers = {};
@@ -411,6 +413,12 @@ function App() {
                                                 <span>Admin Users</span>
                                             </Link>
                                         )}
+                                        {canModerateReports && (
+                                            <Link to="/moderation/reports" className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-academic-100 text-academic-700 transition-colors">
+                                                <Bell className="w-4 h-4" />
+                                                <span>Reports</span>
+                                            </Link>
+                                        )}
                                     </div>
                                 </div>
 
@@ -475,7 +483,8 @@ function App() {
                             <Route path="/auth/callback" element={<AuthCallback onLogin={handleLoginSuccess} />} />
                             <Route path="/admin/users" element={<AdminUsers currentUser={currentUser} onUserUpdate={handleLoginSuccess} />} />
                             <Route path="/profile" element={<Profile currentUser={currentUser} posts={posts} onUserUpdate={handleLoginSuccess} />} />
-                            <Route path="/profile/:username" element={<PublicProfile posts={posts} />} />
+                            <Route path="/profile/:username" element={<PublicProfile posts={posts} currentUser={currentUser} />} />
+                            <Route path="/moderation/reports" element={<ModerationReports currentUser={currentUser} />} />
                             <Route path="/settings" element={<Settings currentUser={currentUser} />} />
                         </Routes>
                     </main>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ThumbsUp, ThumbsDown, User, Calendar, FileText, Trash2 } from 'lucide-react';
+import { ArrowLeft, ThumbsUp, ThumbsDown, User, Calendar, FileText, Trash2, Flag } from 'lucide-react';
 import * as API from '../api';
 
 function formatDateTime(isoTime) {
@@ -16,6 +16,9 @@ export default function PostDetail({ posts, currentUser, onVote }) {
     const [comments, setComments] = useState([]);
     const [commentText, setCommentText] = useState('');
     const [isLoadingComments, setIsLoadingComments] = useState(false);
+    const [showReportForm, setShowReportForm] = useState(false);
+    const [reportReason, setReportReason] = useState('');
+    const [reportMessage, setReportMessage] = useState('');
 
     const authHeaders = (hasJson = false) => {
         const headers = {};
@@ -27,6 +30,8 @@ export default function PostDetail({ posts, currentUser, onVote }) {
         }
         return headers;
     };
+
+    const canReport = Boolean(currentUser && (currentUser.acting_role || currentUser.role) !== 'General User');
 
     const loadComments = async () => {
         if (!post) {
@@ -72,6 +77,29 @@ export default function PostDetail({ posts, currentUser, onVote }) {
             setComments((prev) => prev.filter((comment) => comment.id !== commentId));
         } catch (error) {
             alert('Unable to delete comment.');
+        }
+    };
+
+    const handleReportPost = async (e) => {
+        e.preventDefault();
+        if (!canReport) {
+            setReportMessage('Only verified users can submit reports.');
+            return;
+        }
+
+        const reason = reportReason.trim();
+        if (!reason) {
+            setReportMessage('Please describe why you are reporting this post.');
+            return;
+        }
+
+        try {
+            await API.reportPost(post.id, { reason }, authHeaders(true));
+            setReportReason('');
+            setShowReportForm(false);
+            setReportMessage('Report submitted.');
+        } catch (error) {
+            setReportMessage(error?.message || 'Unable to submit report.');
         }
     };
 
@@ -161,9 +189,38 @@ export default function PostDetail({ posts, currentUser, onVote }) {
                                 </button>
                             </div>
 
-                            <div className="text-sm text-academic-500">Score: {post.score || 0}</div>
+                            <div className="flex items-center gap-3 text-sm text-academic-500">
+                                <span>Score: {post.score || 0}</span>
+                                {canReport && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowReportForm((prev) => !prev)}
+                                        className="inline-flex items-center gap-1 text-amber-700 hover:text-amber-900 hover:underline"
+                                    >
+                                        <Flag className="w-4 h-4" />
+                                        Report post
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         {!currentUser && <div className="text-sm text-blue-700 mt-3">Log in to cast your vote.</div>}
+                        {showReportForm && canReport && (
+                            <form onSubmit={handleReportPost} className="mt-4 space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                                <label className="block text-sm font-medium text-academic-800">Why are you reporting this post?</label>
+                                <textarea
+                                    rows={4}
+                                    className="textarea"
+                                    value={reportReason}
+                                    onChange={(e) => setReportReason(e.target.value)}
+                                    placeholder="Describe the issue..."
+                                />
+                                <div className="flex items-center gap-3">
+                                    <button type="submit" className="btn btn-primary">Submit report</button>
+                                    <button type="button" className="btn btn-outline" onClick={() => setShowReportForm(false)}>Cancel</button>
+                                </div>
+                            </form>
+                        )}
+                        {reportMessage && <div className="text-sm text-academic-700 mt-3">{reportMessage}</div>}
                     </div>
                 </div>
             </div>

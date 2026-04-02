@@ -12,21 +12,13 @@ from .models import PlatformUser
 from .models import AuthToken
 
 
-DEMO_USERS = {
-	'admin': {
-		'email': 'admin@scholr.local',
-		'full_name': 'Administrator',
-		'role': PlatformUser.ROLE_ADMIN,
-	},
-}
-
-
 def _user_payload(user):
 	"""Build the standard user JSON response dict."""
 	return {
 		'id': user.id,
 		'username': user.username,
 		'email': user.email,
+		'email_verified': user.email_verified,
 		'full_name': user.full_name,
 		'institution': user.institution,
 		'bio': user.bio,
@@ -60,6 +52,9 @@ def _upsert_oauth_user(supabase_user):
 		if not user.supabase_id:
 			user.supabase_id = sub
 			updates.append('supabase_id')
+		if not user.email_verified:
+			user.email_verified = True
+			updates.append('email_verified')
 		if user.role == PlatformUser.ROLE_GENERAL:
 			user.role = PlatformUser.ROLE_VERIFIED
 			updates.append('role')
@@ -80,6 +75,7 @@ def _upsert_oauth_user(supabase_user):
 	user = PlatformUser.objects.create(
 		username=username,
 		email=email,
+		email_verified=True,
 		full_name=full_name,
 		profile_picture=avatar_url,
 		supabase_id=sub,
@@ -123,7 +119,7 @@ def users(request):
 			return JsonResponse({'detail': 'Admin access required.'}, status=403)
 
 		records = PlatformUser.objects.all().values(
-			'id', 'username', 'email', 'full_name', 'role', 'is_active', 'created_at'
+			'id', 'username', 'email', 'email_verified', 'full_name', 'role', 'is_active', 'created_at'
 		)
 		return JsonResponse({'results': list(records)})
 
@@ -142,6 +138,7 @@ def users(request):
 			username=payload['username'],
 			password_hash=make_password(payload['password']),
 			email=payload['email'],
+			email_verified=False,
 			full_name=payload['full_name'],
 			institution=payload.get('institution', ''),
 			bio=payload.get('bio', ''),
@@ -169,14 +166,14 @@ def login(request):
 
 	user = PlatformUser.objects.filter(username=username, is_active=True).first()
 	if not user:
-		demo = DEMO_USERS.get(username.lower())
-		if demo and username.lower() == 'admin' and password == 'admin':
+		if settings.DEBUG and username.lower() == 'admin' and password == 'admin':
 			user = PlatformUser.objects.create(
 				username=username,
 				password_hash=make_password(password),
-				email=demo['email'],
-				full_name=demo['full_name'],
-				role=demo['role'],
+				email='admin@scholr.local',
+				email_verified=True,
+				full_name='Administrator',
+				role=PlatformUser.ROLE_ADMIN,
 			)
 	if not user:
 		return JsonResponse({'detail': 'Invalid credentials.'}, status=401)
@@ -223,7 +220,28 @@ def user_detail(request, user_id):
 			return JsonResponse({'detail': 'Invalid JSON payload.'}, status=400)
 
 		update_fields = []
-		for field in ['full_name', 'institution', 'bio', 'tagline', 'phone_number']:
+
+		if 'username' in payload and payload['username'] != user.username:
+			new_username = (payload['username'] or '').strip()
+			if not new_username:
+				return JsonResponse({'detail': 'Username cannot be empty.'}, status=400)
+			if PlatformUser.objects.filter(username=new_username).exclude(id=user.id).exists():
+				return JsonResponse({'detail': 'Username already taken.'}, status=400)
+			user.username = new_username
+			update_fields.append('username')
+
+		if 'email' in payload and payload['email'] != user.email:
+			new_email = (payload['email'] or '').strip()
+			if not new_email:
+				return JsonResponse({'detail': 'Email cannot be empty.'}, status=400)
+			if PlatformUser.objects.filter(email=new_email).exclude(id=user.id).exists():
+				return JsonResponse({'detail': 'Email already taken.'}, status=400)
+			user.email = new_email
+			user.email_verified = False
+			user.role = PlatformUser.ROLE_GENERAL
+			update_fields.extend(['email', 'email_verified', 'role'])
+
+		for field in ['full_name', 'institution', 'bio', 'tagline', 'phone_number', 'profile_picture']:
 			if field in payload and payload[field] != getattr(user, field):
 				setattr(user, field, payload[field])
 				update_fields.append(field)
@@ -254,6 +272,21 @@ def user_detail(request, user_id):
 		if update_fields:
 			user.save(update_fields=update_fields)
 		return JsonResponse(_user_payload(user))
+
+	if request.method == 'DELETE':
+		actor = get_authenticated_user(request)
+		if not actor:
+			return JsonResponse({'detail': 'Authentication required.'}, status=401)
+		actor_role = get_effective_role(request, actor)
+		if actor_role != PlatformUser.ROLE_ADMIN:
+			return JsonResponse({'detail': 'Only admins can delete users.'}, status=403)
+		
+		if actor.id == user.id:
+			return JsonResponse({'detail': 'Cannot delete your own account.'}, status=400)
+
+		user.is_active = False
+		user.save(update_fields=['is_active'])
+		return JsonResponse({'detail': 'User deleted successfully.'}, status=204)
 
 	return JsonResponse({'detail': 'Method not allowed.'}, status=405)
 

@@ -4,8 +4,6 @@ import { Sparkles, User, Lock, AlertCircle } from 'lucide-react';
 import * as API from '../api';
 import { supabase, isSupabaseConfigured } from '../supabase';
 
-const QUICK_LOGINS = [{ username: 'admin', password: 'admin', role: 'Administrator' }];
-
 export default function Login({ onLogin }) {
     const navigate = useNavigate();
     const [username, setUsername] = useState('');
@@ -181,26 +179,6 @@ export default function Login({ onLogin }) {
                                         Sign up
                                     </Link>
                                 </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="card bg-white shadow-lg">
-                        <div className="p-6">
-                            <h4 className="text-lg font-semibold text-academic-900 mb-4 text-center">Quick Login</h4>
-                            <div className="space-y-2">
-                                {QUICK_LOGINS.map((cred) => (
-                                    <button
-                                        key={cred.username}
-                                        onClick={() => submitLogin(cred.username, cred.password)}
-                                        className="w-full flex items-center justify-between p-3 rounded-lg border border-academic-200 hover:border-academic-300 hover:bg-academic-50 transition-all duration-200"
-                                    >
-                                        <div className="text-left">
-                                            <div className="font-medium text-academic-900">{cred.role}</div>
-                                            <div className="text-xs text-academic-600">{cred.username} / {cred.password}</div>
-                                        </div>
-                                    </button>
-                                ))}
                             </div>
                         </div>
                     </div>

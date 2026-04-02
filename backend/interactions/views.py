@@ -64,7 +64,44 @@ def report_post(request, post_id):
     if user_role == PlatformUser.ROLE_GENERAL:
         return JsonResponse({'detail': 'General users cannot submit reports.', 'code': 'report_not_allowed'}, status=403)
 
-    report = Report.objects.create(reporter=user, post=post, reason=reason)
+    report = Report.objects.create(reporter=user, post=post, target_type=Report.TARGET_POST, reason=reason)
+    return JsonResponse({'id': report.id, 'status': report.status}, status=201)
+
+
+@csrf_exempt
+def report_user(request, user_id):
+    if request.method != 'POST':
+        return JsonResponse({'detail': 'Method not allowed.'}, status=405)
+
+    payload = parse_json_body(request)
+    if payload is None:
+        return JsonResponse({'detail': 'Invalid JSON payload.'}, status=400)
+
+    user = get_authenticated_user(request)
+    if not user:
+        return JsonResponse({'detail': 'Authentication required.'}, status=401)
+    user_role = get_effective_role(request, user)
+
+    reason = payload.get('reason', '').strip()
+    if not reason:
+        return JsonResponse({'detail': 'reason is required.'}, status=400)
+
+    reported_user = PlatformUser.objects.filter(id=user_id, is_active=True).first()
+    if not reported_user:
+        return JsonResponse({'detail': 'User not found.'}, status=404)
+
+    if user_role == PlatformUser.ROLE_GENERAL:
+        return JsonResponse({'detail': 'General users cannot submit reports.', 'code': 'report_not_allowed'}, status=403)
+
+    if reported_user.id == user.id:
+        return JsonResponse({'detail': 'You cannot report your own account.'}, status=400)
+
+    report = Report.objects.create(
+        reporter=user,
+        reported_user=reported_user,
+        target_type=Report.TARGET_USER,
+        reason=reason,
+    )
     return JsonResponse({'id': report.id, 'status': report.status}, status=201)
 
 
@@ -72,17 +109,45 @@ def reports_collection(request):
     if request.method != 'GET':
         return JsonResponse({'detail': 'Method not allowed.'}, status=405)
 
-    reports = Report.objects.select_related('reporter', 'post').all().values(
-        'id',
-        'status',
-        'reason',
-        'created_at',
-        'reporter_id',
-        'reporter__username',
-        'post_id',
-        'post__title',
-    )
-    return JsonResponse({'results': list(reports)})
+    actor = get_authenticated_user(request)
+    if not actor:
+        return JsonResponse({'detail': 'Authentication required.'}, status=401)
+
+    actor_role = get_effective_role(request, actor)
+    if actor_role not in [PlatformUser.ROLE_ADMIN, PlatformUser.ROLE_DEVELOPER, PlatformUser.ROLE_MODERATOR]:
+        return JsonResponse({'detail': 'Admin, developer, or moderator access required.'}, status=403)
+
+    reports = Report.objects.select_related('reporter', 'post', 'reported_user').all()
+    results = []
+    for report in reports:
+        item = {
+            'id': report.id,
+            'target_type': report.target_type,
+            'status': report.status,
+            'reason': report.reason,
+            'created_at': report.created_at.isoformat(),
+            'reporter_id': report.reporter_id,
+            'reporter_username': report.reporter.username,
+        }
+        if report.target_type == Report.TARGET_POST and report.post:
+            item.update(
+                {
+                    'post_id': report.post_id,
+                    'post_title': report.post.title,
+                    'post_author_username': report.post.author.username,
+                }
+            )
+        if report.target_type == Report.TARGET_USER and report.reported_user:
+            item.update(
+                {
+                    'reported_user_id': report.reported_user_id,
+                    'reported_username': report.reported_user.username,
+                    'reported_full_name': report.reported_user.full_name,
+                }
+            )
+        results.append(item)
+
+    return JsonResponse({'results': results})
 
 
 @csrf_exempt

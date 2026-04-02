@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { User, Calendar, Shield, Users, Code, CheckCircle, X, Plus } from 'lucide-react';
+import { User, Calendar, Shield, Users, Code, CheckCircle, X, Plus, Upload } from 'lucide-react';
 import * as API from '../api';
+import { supabase, isSupabaseConfigured } from '../supabase';
+
+const PROFILE_BUCKET = import.meta.env.VITE_SUPABASE_PROFILE_BUCKET || 'profile-pictures';
 
 function formatJoinDate(isoTime) {
     if (!isoTime) {
@@ -11,6 +14,8 @@ function formatJoinDate(isoTime) {
 
 export default function Profile({ currentUser, posts, onUserUpdate }) {
     const [form, setForm] = useState({ 
+        username: '',
+        email: '',
         full_name: '', 
         institution: '', 
         bio: '',
@@ -21,6 +26,8 @@ export default function Profile({ currentUser, posts, onUserUpdate }) {
     });
     const [skillInput, setSkillInput] = useState('');
     const [newLink, setNewLink] = useState({ type: 'github', url: '' });
+    const [profilePictureFile, setProfilePictureFile] = useState(null);
+    const [isUploadingPicture, setIsUploadingPicture] = useState(false);
     const [message, setMessage] = useState('');
 
     useEffect(() => {
@@ -37,6 +44,8 @@ export default function Profile({ currentUser, posts, onUserUpdate }) {
         }
         
         setForm({
+            username: currentUser.username || '',
+            email: currentUser.email || '',
             full_name: currentUser.full_name || '',
             institution: currentUser.institution || '',
             bio: currentUser.bio || '',
@@ -92,6 +101,21 @@ export default function Profile({ currentUser, posts, onUserUpdate }) {
         e.preventDefault();
         setMessage('');
 
+        const emailChanged = form.email !== currentUser.email;
+
+        if (emailChanged) {
+            const confirmed = window.confirm(
+                `⚠️ WARNING: Changing your email will set your account back to "General User" and mark the email as unverified.\n\n` +
+                `You will need to reverify the new email address.\n\n` +
+                `Are you sure you want to change your email from "${currentUser.email}" to "${form.email}"?`
+            );
+            
+            if (!confirmed) {
+                setMessage('Email change cancelled.');
+                return;
+            }
+        }
+
         try {
             // Convert links array back to object for backend
             const linksObj = {};
@@ -100,18 +124,80 @@ export default function Profile({ currentUser, posts, onUserUpdate }) {
             });
             
             const payload = {
-                ...form,
+                username: form.username,
+                email: form.email,
+                full_name: form.full_name,
+                institution: form.institution,
+                bio: form.bio,
+                tagline: form.tagline,
                 skills: form.skills.length > 0 ? form.skills : [],
+                phone_number: form.phone_number,
                 links: linksObj
             };
+            
+            if (emailChanged) {
+                payload.role = 'General User';
+                payload.email_verified = false;
+            }
+            
             const data = await API.updateUser(currentUser.id, payload, {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${currentUser.token}`,
             });
-            onUserUpdate({ ...currentUser, ...payload });
-            setMessage('Profile updated.');
+            
+            const updatedUser = { ...currentUser, ...data };
+            onUserUpdate(updatedUser);
+            setMessage(emailChanged ? 'Email updated. Your account is now unverified until reverification.' : 'Profile updated.');
         } catch (error) {
             setMessage('Unable to save profile updates.');
+        }
+    };
+
+    const handleUploadProfilePicture = async () => {
+        if (!profilePictureFile) {
+            setMessage('Choose an image first.');
+            return;
+        }
+
+        if (!isSupabaseConfigured || !supabase) {
+            setMessage('Supabase storage is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+            return;
+        }
+
+        setIsUploadingPicture(true);
+        setMessage('');
+
+        try {
+            const fileName = `${currentUser.id}-${Date.now()}-${profilePictureFile.name}`;
+            const { error: uploadError } = await supabase.storage
+                .from(PROFILE_BUCKET)
+                .upload(fileName, profilePictureFile, {
+                    upsert: true,
+                    contentType: profilePictureFile.type,
+                });
+
+            if (uploadError) {
+                throw uploadError;
+            }
+
+            const { data: publicData } = supabase.storage.from(PROFILE_BUCKET).getPublicUrl(fileName);
+            const publicUrl = publicData?.publicUrl;
+            if (!publicUrl) {
+                throw new Error('Unable to resolve the uploaded image URL.');
+            }
+
+            const updatedUser = await API.updateUser(currentUser.id, { profile_picture: publicUrl }, {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentUser.token}`,
+            });
+
+            onUserUpdate({ ...currentUser, ...updatedUser });
+            setProfilePictureFile(null);
+            setMessage('Profile picture updated.');
+        } catch (error) {
+            setMessage(error?.message || 'Unable to upload profile picture.');
+        } finally {
+            setIsUploadingPicture(false);
         }
     };
 
@@ -157,9 +243,17 @@ export default function Profile({ currentUser, posts, onUserUpdate }) {
 
             <div className="card">
                 <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-6">
-                    <div className="w-24 h-24 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center shadow-lg">
-                        <User className="w-12 h-12 text-white" />
-                    </div>
+                    {currentUser?.profile_picture ? (
+                        <img
+                            src={currentUser.profile_picture}
+                            alt={currentUser.full_name}
+                            className="w-24 h-24 rounded-full object-cover shadow-lg"
+                        />
+                    ) : (
+                        <div className="w-24 h-24 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center shadow-lg">
+                            <User className="w-12 h-12 text-white" />
+                        </div>
+                    )}
 
                     <div className="flex-1 text-center md:text-left">
                         <h2 className="text-2xl font-bold text-academic-900 mb-1">{currentUser.full_name || currentUser.username}</h2>
@@ -174,7 +268,10 @@ export default function Profile({ currentUser, posts, onUserUpdate }) {
                                 <span className="text-sm">Joined {formatJoinDate(currentUser.created_at)}</span>
                             </div>
                         </div>
-                        <p className="text-academic-600">{currentUser.email}</p>
+                            <div className="text-academic-600 space-y-1">
+                                <p>{currentUser.email}</p>
+                                <p className="text-xs text-academic-500">{currentUser.email_verified ? 'Email verified' : 'Email not verified'}</p>
+                            </div>
                     </div>
                 </div>
             </div>
@@ -185,11 +282,44 @@ export default function Profile({ currentUser, posts, onUserUpdate }) {
                     <div>
                         <label className="block text-sm font-medium text-academic-700 mb-1">Username</label>
                         <input
-                            className="input bg-academic-50 cursor-not-allowed"
-                            value={currentUser?.username || ''}
-                            disabled
+                            className="input"
+                            value={form.username}
+                            onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
+                            placeholder="Enter username"
                         />
-                        <p className="text-xs text-academic-500 mt-1">Username cannot be changed</p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-academic-700 mb-1">Email</label>
+                        <input
+                            className="input"
+                            value={form.email}
+                            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                            placeholder="Enter email"
+                            type="email"
+                        />
+                        <p className="text-xs text-amber-600 mt-1">Changing email will require reverification and set your account back to General User.</p>
+                    </div>
+
+                    <div className="space-y-2 rounded-lg border border-academic-200 bg-academic-50 p-4">
+                        <label className="block text-sm font-medium text-academic-700">Profile picture</label>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            className="block w-full text-sm text-academic-700"
+                            onChange={(e) => setProfilePictureFile(e.target.files?.[0] || null)}
+                        />
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                className="btn btn-primary flex items-center gap-2"
+                                onClick={handleUploadProfilePicture}
+                                disabled={!profilePictureFile || isUploadingPicture}
+                            >
+                                <Upload className="w-4 h-4" />
+                                {isUploadingPicture ? 'Uploading...' : 'Upload picture'}
+                            </button>
+                            {profilePictureFile && <span className="text-xs text-academic-500 truncate">{profilePictureFile.name}</span>}
+                        </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-academic-700 mb-1">Full Name</label>

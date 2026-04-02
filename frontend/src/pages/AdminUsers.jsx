@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Shield, RefreshCw, Users, ChevronDown } from 'lucide-react';
+import { Shield, RefreshCw, Users, ChevronDown, Trash2 } from 'lucide-react';
 import * as API from '../api';
 
 const ROLE_OPTIONS = [
@@ -69,6 +69,27 @@ export default function AdminUsers({ currentUser, onUserUpdate }) {
         }
     };
 
+    const deleteUser = async (userId) => {
+        if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+            return;
+        }
+
+        setSavingUserId(userId);
+        setError('');
+        try {
+            await API.deleteUser(userId, {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentUser.token}`,
+            });
+
+            setUsers((prev) => prev.filter((user) => user.id !== userId));
+        } catch (err) {
+            setError(err?.message || 'Unable to delete user.');
+        } finally {
+            setSavingUserId(null);
+        }
+    };
+
     return (
         <div className="max-w-6xl mx-auto space-y-6">
             <div className="card bg-gradient-to-br from-slate-900 to-slate-700 text-white border-slate-700">
@@ -78,8 +99,8 @@ export default function AdminUsers({ currentUser, onUserUpdate }) {
                             <Shield className="w-4 h-4" />
                             <span>Admin Console</span>
                         </div>
-                        <h1 className="text-3xl font-bold">User Roles</h1>
-                        <p className="text-slate-200 mt-2">Upgrade or downgrade any account after it is created.</p>
+                        <h1 className="text-3xl font-bold">Manage Users</h1>
+                        <p className="text-slate-200 mt-2">Update roles, manage accounts, and delete users.</p>
                     </div>
                     <button className="btn btn-outline bg-white text-slate-900 hover:bg-slate-100" onClick={() => window.location.reload()}>
                         <RefreshCw className="w-4 h-4 mr-2" />
@@ -113,6 +134,7 @@ export default function AdminUsers({ currentUser, onUserUpdate }) {
                                     <th className="py-3 pr-4 font-medium">Email</th>
                                     <th className="py-3 pr-4 font-medium">Role</th>
                                     <th className="py-3 pr-4 font-medium">Change role</th>
+                                    <th className="py-3 pr-4 font-medium">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -140,6 +162,16 @@ export default function AdminUsers({ currentUser, onUserUpdate }) {
                                                 </select>
                                                 <ChevronDown className="w-4 h-4 text-academic-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                                             </div>
+                                        </td>
+                                        <td className="py-4 pr-4">
+                                            <button
+                                                onClick={() => deleteUser(user.id)}
+                                                disabled={savingUserId === user.id || user.id === currentUser.id}
+                                                className="p-2 rounded-lg hover:bg-red-50 text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                title={user.id === currentUser.id ? 'Cannot delete your own account' : 'Delete user'}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}

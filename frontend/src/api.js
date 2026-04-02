@@ -77,6 +77,13 @@ export const votePost = (postId, voteData, authHeaders) =>
     body: JSON.stringify(voteData),
   });
 
+export const reportPost = (postId, reportData, authHeaders) =>
+  request(`/posts/${postId}/report/`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify(reportData),
+  });
+
 // ============ COMMENTS ============
 export const fetchComments = (postId) =>
   request(`/posts/${postId}/comments/`);
@@ -92,6 +99,13 @@ export const deleteComment = (commentId, authHeaders) =>
   request(`/comments/${commentId}/`, {
     method: 'DELETE',
     headers: authHeaders,
+  });
+
+export const reportUser = (userId, reportData, authHeaders) =>
+  request(`/users/${userId}/report/`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify(reportData),
   });
 
 // ============ AUTHENTICATION ============
@@ -145,6 +159,12 @@ export const updateUser = (userId, userData, authHeaders) =>
     body: JSON.stringify(userData),
   });
 
+export const deleteUser = (userId, authHeaders) =>
+  request(`/accounts/users/${userId}/`, {
+    method: 'DELETE',
+    headers: authHeaders,
+  });
+
 export const getUsers = (authHeaders) =>
   request('/accounts/users/', {
     method: 'GET',
@@ -154,6 +174,12 @@ export const getUsers = (authHeaders) =>
 export const getPublicProfile = (username) =>
   request(`/accounts/public/${username}/`, {
     method: 'GET',
+  });
+
+export const getReports = (authHeaders) =>
+  request('/reports/', {
+    method: 'GET',
+    headers: authHeaders,
   });
 
 export { BASE_URL };

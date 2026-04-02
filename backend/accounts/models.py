@@ -22,6 +22,7 @@ class PlatformUser(models.Model):
 	username = models.CharField(max_length=100, unique=True)
 	password_hash = models.CharField(max_length=255, blank=True)
 	email = models.EmailField(unique=True)
+	email_verified = models.BooleanField(default=False)
 	full_name = models.CharField(max_length=255)
 	institution = models.CharField(max_length=255, blank=True)
 	bio = models.TextField(blank=True)
