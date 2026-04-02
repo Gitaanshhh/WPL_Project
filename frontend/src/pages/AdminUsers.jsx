@@ -94,12 +94,12 @@ export default function AdminUsers({ currentUser, onUserUpdate }) {
         setSavingUserId(userId);
         setError('');
         try {
-            await API.updateUser(userId, { is_active: false }, {
+            const updatedUser = await API.updateUser(userId, { is_active: false }, {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${currentUser.token}`,
             });
 
-            setUsers((prev) => prev.filter((user) => user.id !== userId));
+            setUsers((prev) => prev.map((user) => (user.id === userId ? { ...user, is_active: false } : user)));
         } catch (err) {
             setError(err?.message || 'Unable to ban user.');
         } finally {
@@ -132,7 +132,7 @@ export default function AdminUsers({ currentUser, onUserUpdate }) {
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h2 className="text-xl font-semibold text-academic-900">All Accounts</h2>
-                        <p className="text-sm text-academic-600">Name, email, and role only.</p>
+                        <p className="text-sm text-academic-600">Includes active and inactive accounts.</p>
                     </div>
                     <div className="flex items-center space-x-2 text-academic-600 text-sm">
                         <Users className="w-4 h-4" />
@@ -149,6 +149,7 @@ export default function AdminUsers({ currentUser, onUserUpdate }) {
                                 <tr className="border-b border-academic-200 text-sm text-academic-500">
                                     <th className="py-3 pr-4 font-medium">Name</th>
                                     <th className="py-3 pr-4 font-medium">Email</th>
+                                    <th className="py-3 pr-4 font-medium">Status</th>
                                     <th className="py-3 pr-4 font-medium">Role</th>
                                     <th className="py-3 pr-4 font-medium">Change role</th>
                                     <th className="py-3 pr-4 font-medium">Actions</th>
@@ -162,6 +163,11 @@ export default function AdminUsers({ currentUser, onUserUpdate }) {
                                             <div className="text-xs text-academic-500">@{user.username}</div>
                                         </td>
                                         <td className="py-4 pr-4 text-sm text-academic-700">{user.email}</td>
+                                        <td className="py-4 pr-4 text-sm">
+                                            <span className={user.is_active ? 'badge bg-emerald-50 text-emerald-700 border border-emerald-200' : 'badge bg-slate-100 text-slate-600 border border-slate-200'}>
+                                                {user.is_active ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </td>
                                         <td className="py-4 pr-4 text-sm">
                                             <span className="badge badge-primary">{user.role}</span>
                                         </td>
@@ -184,9 +190,9 @@ export default function AdminUsers({ currentUser, onUserUpdate }) {
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={() => banUser(user.id)}
-                                                    disabled={savingUserId === user.id || user.id === currentUser.id}
+                                                    disabled={savingUserId === user.id || user.id === currentUser.id || !user.is_active}
                                                     className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    title={user.id === currentUser.id ? 'Cannot ban your own account' : 'Ban user'}
+                                                    title={user.id === currentUser.id ? 'Cannot ban your own account' : (!user.is_active ? 'User is already inactive' : 'Ban user')}
                                                 >
                                                     <Ban className="w-4 h-4" />
                                                     Ban

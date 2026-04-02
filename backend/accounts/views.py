@@ -152,7 +152,7 @@ def users(request):
 		if get_effective_role(request, actor) != PlatformUser.ROLE_ADMIN:
 			return JsonResponse({'detail': 'Admin access required.'}, status=403)
 
-		records = PlatformUser.objects.filter(is_active=True).values(
+		records = PlatformUser.objects.all().values(
 			'id', 'username', 'email', 'email_verified', 'full_name', 'role', 'is_active', 'created_at'
 		)
 		return JsonResponse({'results': list(records)})
@@ -233,7 +233,7 @@ def login(request):
 
 @csrf_exempt
 def user_detail(request, user_id):
-	user = PlatformUser.objects.filter(id=user_id, is_active=True).first()
+	user = PlatformUser.objects.filter(id=user_id).first()
 	if not user:
 		return JsonResponse({'detail': 'User not found.'}, status=404)
 
