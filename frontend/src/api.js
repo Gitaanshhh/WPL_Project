@@ -246,4 +246,10 @@ export const joinTopicRoom = (topicId, authHeaders) =>
     body: JSON.stringify({ topic_id: topicId }),
   });
 
+export const getChatUsers = (authHeaders) =>
+  request('/chat-users/', {
+    method: 'GET',
+    headers: authHeaders,
+  });
+
 export { BASE_URL };

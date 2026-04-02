@@ -225,6 +225,22 @@ def comment_detail(request, comment_id):
 
 # ============ CHAT ============
 
+def chat_users(request):
+    """GET: list active users for starting conversations (lightweight, any logged-in user)."""
+    actor = get_authenticated_user(request)
+    if not actor:
+        return JsonResponse({'detail': 'Authentication required.'}, status=401)
+
+    if request.method != 'GET':
+        return JsonResponse({'detail': 'Method not allowed.'}, status=405)
+
+    users = PlatformUser.objects.filter(is_active=True).exclude(id=actor.id).values(
+        'id', 'username', 'full_name', 'profile_picture'
+    )
+    return JsonResponse({'results': list(users)})
+
+
+
 def _convo_payload(convo, actor):
     """Build a conversation JSON dict for the given actor."""
     members = list(convo.members.select_related('user').all())

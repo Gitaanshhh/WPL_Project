@@ -168,8 +168,8 @@ export default function ChatWidget({ currentUser, authHeaders }) {
 
     const loadUsers = async () => {
         try {
-            const data = await API.getUsers(headers());
-            setAllUsers((data.results || []).filter((u) => u.id !== currentUser.id && u.is_active));
+            const data = await API.getChatUsers(headers());
+            setAllUsers(data.results || []);
         } catch { /* ignore */ }
     };
 

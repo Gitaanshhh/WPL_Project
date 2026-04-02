@@ -1,7 +1,7 @@
 from django.urls import path
 
 from .views import (
-    comment_detail, comments_collection, conversation_messages,
+    chat_users, comment_detail, comments_collection, conversation_messages,
     conversations_list, report_post, report_user, reports_collection,
     topic_rooms, unread_count, vote_on_post,
 )
@@ -17,4 +17,5 @@ urlpatterns = [
     path('conversations/unread/', unread_count, name='unread-count'),
     path('conversations/<int:convo_id>/messages/', conversation_messages, name='conversation-messages'),
     path('topic-rooms/', topic_rooms, name='topic-rooms'),
+    path('chat-users/', chat_users, name='chat-users'),
 ]
