@@ -110,8 +110,18 @@ def _delete_supabase_user(supabase_user_id):
 			if response.status in (200, 204):
 				return True, None
 	except urllib.error.HTTPError as exc:
-			message = exc.read().decode('utf-8', errors='ignore') or exc.reason or 'Failed to delete Supabase user.'
-			return False, JsonResponse({'detail': message}, status=exc.code)
+			raw_message = exc.read().decode('utf-8', errors='ignore') or exc.reason or 'Failed to delete Supabase user.'
+			if exc.code == 403 and 'not_admin' in raw_message:
+				return False, JsonResponse(
+					{
+						'detail': (
+							'Supabase rejected the admin delete request (not_admin). '
+							'Your backend is not using a valid SUPABASE_SERVICE_ROLE_KEY for this project.'
+						)
+					},
+					status=500,
+				)
+			return False, JsonResponse({'detail': raw_message}, status=exc.code)
 	except urllib.error.URLError as exc:
 		return False, JsonResponse({'detail': f'Failed to reach Supabase: {exc.reason}'}, status=502)
 
