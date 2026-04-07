@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models.functions import Lower
 from django.utils import timezone
 import json
 import secrets
@@ -38,9 +39,17 @@ class PlatformUser(models.Model):
 
 	class Meta:
 		ordering = ['-created_at']
+		constraints = [
+			models.UniqueConstraint(Lower('email'), name='accounts_platformuser_email_ci_unique'),
+		]
 
 	def __str__(self):
 		return f"{self.username} ({self.role})"
+
+	def save(self, *args, **kwargs):
+		if self.email:
+			self.email = self.email.strip().lower()
+		super().save(*args, **kwargs)
 
 	def get_links_dict(self):
 		if not self.links:

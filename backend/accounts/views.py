@@ -33,9 +33,13 @@ def _user_payload(user):
 	}
 
 
+def _normalize_email(value):
+	return (value or '').strip().lower()
+
+
 def _upsert_oauth_user(supabase_user):
 	sub = supabase_user.get('id', '')
-	email = supabase_user.get('email', '')
+	email = _normalize_email(supabase_user.get('email', ''))
 	meta = supabase_user.get('user_metadata', {})
 	full_name = meta.get('full_name') or meta.get('name') or email.split('@')[0]
 	avatar_url = meta.get('avatar_url') or meta.get('picture') or ''
@@ -45,13 +49,16 @@ def _upsert_oauth_user(supabase_user):
 
 	user = PlatformUser.objects.filter(supabase_id=sub).first()
 	if not user:
-		user = PlatformUser.objects.filter(email=email).first()
+		user = PlatformUser.objects.filter(email__iexact=email).first()
 
 	if user:
 		updates = []
 		if not user.supabase_id:
 			user.supabase_id = sub
 			updates.append('supabase_id')
+		if user.email != email:
+			user.email = email
+			updates.append('email')
 		if not user.email_verified:
 			user.email_verified = True
 			updates.append('email_verified')
@@ -178,10 +185,19 @@ def users(request):
 		if missing:
 			return JsonResponse({'detail': f"Missing fields: {', '.join(missing)}"}, status=400)
 
+		email = _normalize_email(payload.get('email'))
+		if not email:
+			return JsonResponse({'detail': 'Email is required.'}, status=400)
+		if PlatformUser.objects.filter(email__iexact=email).exists():
+			return JsonResponse(
+				{'detail': 'Email already exists. Use that account with email/password or Google/LinkedIn.'},
+				status=400,
+			)
+
 		user = PlatformUser.objects.create(
 			username=payload['username'],
 			password_hash=make_password(payload['password']),
-			email=payload['email'],
+			email=email,
 			email_verified=False,
 			full_name=payload['full_name'],
 			institution=payload.get('institution', ''),
@@ -281,10 +297,10 @@ def user_detail(request, user_id):
 			update_fields.append('username')
 
 		if 'email' in payload and payload['email'] != user.email:
-			new_email = (payload['email'] or '').strip()
+			new_email = _normalize_email(payload['email'])
 			if not new_email:
 				return JsonResponse({'detail': 'Email cannot be empty.'}, status=400)
-			if PlatformUser.objects.filter(email=new_email).exclude(id=user.id).exists():
+			if PlatformUser.objects.filter(email__iexact=new_email).exclude(id=user.id).exists():
 				return JsonResponse({'detail': 'Email already taken.'}, status=400)
 			user.email = new_email
 			user.email_verified = False
@@ -378,7 +394,7 @@ def oauth_callback(request):
 
 	Frontend sends: { "access_token": "<supabase-jwt>" }
 	Backend verifies it against Supabase, creates/finds a PlatformUser,
-	and requires a local password before issuing an AuthToken.
+	and issues a local AuthToken for OAuth login.
 	"""
 	if request.method != 'POST':
 		return JsonResponse({'detail': 'Method not allowed.'}, status=405)
@@ -418,31 +434,23 @@ def oauth_callback(request):
 	if not user.is_active:
 		return JsonResponse({'detail': 'Account is deactivated.'}, status=403)
 
-	if password:
-		if user.password_hash:
-			if not check_password(password, user.password_hash):
-				return JsonResponse({'detail': 'Invalid password.'}, status=401)
-		else:
-			user.password_hash = make_password(password)
-			update_fields = ['password_hash']
-			if user.role == PlatformUser.ROLE_GENERAL:
-				user.role = PlatformUser.ROLE_VERIFIED
-				update_fields.append('role')
-			user.save(update_fields=update_fields)
+	if password and not user.password_hash:
+		user.password_hash = make_password(password)
+		update_fields = ['password_hash']
 		if user.role == PlatformUser.ROLE_GENERAL:
 			user.role = PlatformUser.ROLE_VERIFIED
-			user.save(update_fields=['role'])
+			update_fields.append('role')
+		user.save(update_fields=update_fields)
 
-		token = AuthToken.issue_for_user(user)
-		return JsonResponse({
-			'token': token.key,
-			'token_expires_at': token.expires_at.isoformat(),
-			**_user_payload(user),
-		})
+	if user.role == PlatformUser.ROLE_GENERAL:
+		user.role = PlatformUser.ROLE_VERIFIED
+		user.save(update_fields=['role'])
 
+	token = AuthToken.issue_for_user(user)
 	return JsonResponse({
-		'requires_password': True,
-		'user': _user_payload(user),
+		'token': token.key,
+		'token_expires_at': token.expires_at.isoformat(),
+		**_user_payload(user),
 	})
 
 
@@ -534,12 +542,12 @@ def forgot_password(request):
 	except json.JSONDecodeError:
 		return JsonResponse({'detail': 'Invalid JSON payload.'}, status=400)
 
-	email = (payload.get('email') or '').strip()
+	email = _normalize_email(payload.get('email'))
 	if not email:
 		return JsonResponse({'detail': 'email is required.'}, status=400)
 
 	# Always return success to prevent email enumeration
-	user = PlatformUser.objects.filter(email=email, is_active=True).first()
+	user = PlatformUser.objects.filter(email__iexact=email, is_active=True).first()
 	if user:
 		token = EmailToken.create_for(user, EmailToken.PURPOSE_RESET, ttl_hours=1)
 		send_password_reset_email(user, token)
