@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
 import * as API from '../api';
 
 export default function VerifyEmail({ onLogin }) {
+    const navigate = useNavigate();
     const [params] = useSearchParams();
     const token = params.get('token') || '';
     const [status, setStatus] = useState('loading');
@@ -20,9 +21,15 @@ export default function VerifyEmail({ onLogin }) {
         const verify = async () => {
             try {
                 const data = await API.verifyEmail(token);
+                // Clear authentication token to log out
+                localStorage.removeItem('token');
                 setStatus('success');
                 setMessage(data.detail || 'Email verified!');
                 if (data.id) setUserData(data);
+                // Redirect to login after 2 seconds
+                setTimeout(() => {
+                    navigate('/login');
+                }, 2000);
             } catch (err) {
                 setStatus('error');
                 setMessage(err?.message || 'Verification failed.');

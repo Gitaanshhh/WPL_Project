@@ -98,7 +98,7 @@ export default function Home({
         <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-academic-900">Academic Discussions</h1>
+                    <h1 className="text-4xl font-bold text-academic-900">Academic Discussions</h1>
                     <p className="text-academic-600 mt-1">Live discussions from the backend feed</p>
                 </div>
 
@@ -306,7 +306,7 @@ export default function Home({
 
                                     <Link
                                         to={`/post/${post.id}`}
-                                        className="block text-base sm:text-xl font-semibold leading-relaxed text-academic-900 hover:text-primary-700 transition-colors line-clamp-8"
+                                        className="block text-xs sm:text-sm font-semibold leading-relaxed text-academic-900 hover:text-primary-700 transition-colors line-clamp-8"
                                     >
                                         {post.content || post.title}
                                     </Link>
@@ -325,7 +325,7 @@ export default function Home({
 
                                 <div className="mt-6 border-t border-academic-100 pt-4 flex items-end justify-between gap-3">
                                     <div className="space-y-1">
-                                        <Link to={`/profile/${post.author}`} className="text-sm sm:text-base font-medium text-academic-700 hover:text-primary-700">
+                                        <Link to={`/profile/${post.author}`} className="text-xs sm:text-sm font-medium text-academic-700 hover:text-primary-700">
                                             @{post.author}
                                         </Link>
                                         <div className="text-xs text-academic-500">Score {post.score || 0}</div>
