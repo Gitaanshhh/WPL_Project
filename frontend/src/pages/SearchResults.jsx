@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { Search } from 'lucide-react';
 import * as API from '../api';
 
 export default function SearchResults({ currentUser, onTopicSelect }) {
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const query = (searchParams.get('q') || '').trim();
+    const [draftQuery, setDraftQuery] = useState(query);
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState({ topics: [], posts: [], users: [] });
+
+    useEffect(() => {
+        setDraftQuery(query);
+    }, [query]);
 
     useEffect(() => {
         let cancelled = false;
@@ -45,8 +51,37 @@ export default function SearchResults({ currentUser, onTopicSelect }) {
 
     const total = results.topics.length + results.posts.length + results.users.length;
 
+    const handleSearchSubmit = (e) => {
+        e.preventDefault();
+        const next = draftQuery.trim();
+        if (next.length < 2) {
+            setSearchParams({});
+            return;
+        }
+        setSearchParams({ q: next });
+    };
+
     return (
         <div className="max-w-4xl mx-auto space-y-6">
+            <form onSubmit={handleSearchSubmit} className="sticky top-16 z-30 py-2 md:hidden">
+                <div className="relative rounded-xl border border-academic-200 bg-academic-100/90 dark:bg-slate-800/80">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-academic-400" />
+                    <input
+                        type="text"
+                        value={draftQuery}
+                        onChange={(e) => setDraftQuery(e.target.value)}
+                        placeholder="Search discussions, topics, users..."
+                        className="w-full pl-10 pr-20 py-2.5 rounded-xl bg-transparent text-academic-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                    <button
+                        type="submit"
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-600 text-white"
+                    >
+                        Search
+                    </button>
+                </div>
+            </form>
+
             <div>
                 <h1 className="text-2xl font-bold text-academic-900">Search Results</h1>
                 <p className="text-academic-600 mt-1">

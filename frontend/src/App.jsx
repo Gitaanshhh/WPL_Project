@@ -1,21 +1,20 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
     Sparkles,
     User as UserIcon,
     Settings as SettingsIcon,
     LogOut,
-    Menu,
     X,
     Search,
     Bell,
     ChevronDown,
     Home as HomeIcon,
+    MessageSquare,
     Shield,
-    Code,
-    Users,
     Moon,
     Sun,
+    PanelRight,
 } from 'lucide-react';
 import Home from './pages/Home';
 import PostDetail from './pages/PostDetail';
@@ -31,7 +30,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import SearchResults from './pages/SearchResults';
-import ChatWidget from './components/ChatWidget';
+import Messages from './pages/Messages';
 import * as API from './api';
 import './index.css';
 const USER_STORAGE_KEY = 'scholr_current_user';
@@ -184,7 +183,7 @@ function App() {
     const [posts, setPosts] = useState([]);
     const [topics, setTopics] = useState([]);
     const [formData, setFormData] = useState({ title: '', topic_id: '', content: '', refs: '' });
-    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [rightPanelOpen, setRightPanelOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState({ topics: [], posts: [], users: [] });
     const [isSearching, setIsSearching] = useState(false);
@@ -214,6 +213,7 @@ function App() {
     const switchableRoles = getSwitchableRoles(currentUser?.role).filter((roleName) => roleName !== currentUser?.role);
     const canSwitchRole = isLoggedIn && switchableRoles.length > 0;
     const canModerateReports = ['Administrator', 'Developer', 'Moderator'].includes(role);
+    const isAdminRole = role === 'Administrator';
 
     const authHeaders = (hasJson = false) => {
         const headers = {};
@@ -533,34 +533,6 @@ function App() {
         localStorage.removeItem(USER_STORAGE_KEY);
     };
 
-    const getRoleIcon = (roleName) => {
-        switch (roleName) {
-            case 'Administrator':
-                return <Shield className="w-4 h-4" />;
-            case 'Moderator':
-                return <Users className="w-4 h-4" />;
-            case 'Developer':
-                return <Code className="w-4 h-4" />;
-            default:
-                return <UserIcon className="w-4 h-4" />;
-        }
-    };
-
-    const getRoleColor = (roleName) => {
-        switch (roleName) {
-            case 'Administrator':
-                return 'text-red-600 bg-red-50';
-            case 'Moderator':
-                return 'text-orange-600 bg-orange-50';
-            case 'Developer':
-                return 'text-purple-600 bg-purple-50';
-            case 'Verified User':
-                return 'text-blue-600 bg-blue-50';
-            default:
-                return 'text-gray-600 bg-gray-50';
-        }
-    };
-
     const parentTopicMap = topics.reduce((acc, topic) => {
         const key = topic.parent_id || 0;
         if (!acc[key]) {
@@ -577,13 +549,7 @@ function App() {
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex items-center justify-between h-16">
                             <div className="flex items-center">
-                                <button
-                                    onClick={() => setSidebarOpen(!sidebarOpen)}
-                                    className="lg:hidden p-2 rounded-lg hover:bg-academic-100 transition-colors"
-                                >
-                                    {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                                </button>
-                                <Link to="/" className="flex items-center space-x-2 ml-2 lg:ml-0">
+                                <Link to="/" className="flex items-center space-x-2">
                                     <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
                                         <Sparkles className="w-5 h-5 text-white" />
                                     </div>
@@ -604,52 +570,42 @@ function App() {
                             </div>
 
                             <div className="flex items-center space-x-4">
-                                <button
-                                    className="btn btn-ghost"
-                                    title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                                    onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-                                >
-                                    {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                                </button>
-                                {isLoggedIn && (
-                                    <button className="relative p-2 rounded-lg hover:bg-academic-100 transition-colors" title="Notifications">
-                                        <Bell className="w-5 h-5 text-academic-600" />
+                                <div className="hidden md:flex items-center space-x-2">
+                                    <button
+                                        className="btn btn-ghost"
+                                        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                                        onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+                                    >
+                                        {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                                     </button>
-                                )}
+                                    {isLoggedIn && (
+                                        <Link to="/settings" className="relative p-2 rounded-lg hover:bg-academic-100 transition-colors" title="Settings">
+                                            <SettingsIcon className="w-5 h-5 text-academic-600" />
+                                        </Link>
+                                    )}
+                                </div>
 
                                 <div className="flex items-center space-x-2">
                                     {isLoggedIn ? (
                                         <>
-                                            <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${getRoleColor(role)}`}>
-                                                {getRoleIcon(role)}
-                                                <span>{role}</span>
-                                            </div>
-                                            {canSwitchRole && (
-                                                <select
-                                                    value={currentUser?.acting_role || ''}
-                                                    onChange={(e) => handleRoleSwitch(e.target.value)}
-                                                    className="text-sm border border-academic-200 rounded-lg px-2 py-1 bg-white text-academic-700"
-                                                    title="Switch role simulation"
-                                                >
-                                                    <option value="">Use {currentUser.role}</option>
-                                                    {switchableRoles.map((roleOption) => (
-                                                        <option key={roleOption} value={roleOption}>
-                                                            Use {roleOption}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            )}
-                                            <div className="flex items-center space-x-2">
+                                            <Link to="/profile" className="md:hidden p-2 rounded-lg hover:bg-academic-100 transition-colors" title="Profile">
+                                                <UserIcon className="w-5 h-5 text-academic-600" />
+                                            </Link>
+                                            <div className="hidden md:flex items-center space-x-2">
                                                 <Link to="/profile" className="btn btn-ghost" title="Profile">
                                                     <UserIcon className="w-4 h-4" />
-                                                </Link>
-                                                <Link to="/settings" className="btn btn-ghost" title="Settings">
-                                                    <SettingsIcon className="w-4 h-4" />
                                                 </Link>
                                                 <button onClick={handleLogout} className="btn btn-ghost text-red-600 hover:text-red-700" title="Log out">
                                                     <LogOut className="w-4 h-4" />
                                                 </button>
                                             </div>
+                                            <button
+                                                onClick={() => setRightPanelOpen(true)}
+                                                className="md:hidden p-2 rounded-lg hover:bg-academic-100 transition-colors"
+                                                title="Open menu"
+                                            >
+                                                <PanelRight className="w-5 h-5 text-academic-600" />
+                                            </button>
                                         </>
                                     ) : (
                                         <div className="flex items-center space-x-2">
@@ -668,9 +624,7 @@ function App() {
                 </header>
 
                 <div className="flex max-w-7xl mx-auto">
-                    <aside
-                        className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white border-r border-academic-200 transform transition-transform duration-200 ease-in-out lg:transform-none ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} mt-16 lg:mt-0`}
-                    >
+                    <aside className="hidden lg:block lg:sticky lg:top-16 h-[calc(100vh-4rem)] w-64 bg-white border-r border-academic-200">
                         <div className="h-full overflow-y-auto p-6">
                             <nav className="space-y-6">
                                 <div>
@@ -680,7 +634,11 @@ function App() {
                                             <HomeIcon className="w-4 h-4" />
                                             <span>Home Feed</span>
                                         </Link>
-                                        {currentUser?.role === 'Administrator' && (
+                                        <Link to="/messages" className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-academic-100 text-academic-700 transition-colors">
+                                            <MessageSquare className="w-4 h-4" />
+                                            <span>Messages</span>
+                                        </Link>
+                                        {isAdminRole && (
                                             <Link to="/admin/users" className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-academic-100 text-academic-700 transition-colors">
                                                 <Shield className="w-4 h-4" />
                                                 <span>Admin Users</span>
@@ -739,7 +697,7 @@ function App() {
                         </div>
                     </aside>
 
-                    <main className="flex-1 p-3 sm:p-5 lg:p-8">
+                    <main className="flex-1 p-3 sm:p-5 lg:p-8 pb-24 md:pb-8">
                         <Routes>
                             <Route
                                 path="/"
@@ -779,13 +737,123 @@ function App() {
                             <Route path="/reset-password" element={<ResetPassword />} />
                             <Route path="/verify-email" element={<VerifyEmail />} />
                             <Route path="/search" element={<SearchResults currentUser={currentUser} onTopicSelect={(topicId) => handleFilterChange({ sort: 'new', topic_id: topicId })} />} />
+                            <Route path="/messages" element={<Messages currentUser={currentUser} authHeaders={authHeaders} onAuthExpired={handleLogout} />} />
                         </Routes>
                     </main>
                 </div>
 
-                {sidebarOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+                {rightPanelOpen && (
+                    <>
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-[1px] z-[60] md:hidden" onClick={() => setRightPanelOpen(false)} />
+                        <aside className="fixed top-0 right-0 h-full w-80 max-w-[90vw] bg-white border-l border-academic-200 z-[70] p-5 overflow-y-auto md:hidden">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-academic-900">Quick Panel</h3>
+                                <button onClick={() => setRightPanelOpen(false)} className="p-2 rounded-lg hover:bg-academic-100">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
 
-                {isLoggedIn && <ChatWidget currentUser={currentUser} authHeaders={authHeaders} onAuthExpired={handleLogout} />}
+                            <div className="space-y-3">
+                                <Link to="/settings" onClick={() => setRightPanelOpen(false)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-academic-200 hover:bg-academic-50 text-academic-700">
+                                    <SettingsIcon className="w-4 h-4" />
+                                    <span>Settings</span>
+                                </Link>
+                                <button
+                                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-academic-200 hover:bg-academic-50 text-academic-700"
+                                    title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                                    onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+                                >
+                                    {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                                    <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+                                </button>
+                                {isLoggedIn && (
+                                    <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-academic-200 hover:bg-academic-50 text-academic-700">
+                                        <Bell className="w-4 h-4" />
+                                        <span>Notifications</span>
+                                    </button>
+                                )}
+                                {canModerateReports && (
+                                    <Link to="/moderation/reports" onClick={() => setRightPanelOpen(false)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-academic-200 hover:bg-academic-50 text-academic-700">
+                                        <Bell className="w-4 h-4" />
+                                        <span>Reports</span>
+                                    </Link>
+                                )}
+                                {isAdminRole && (
+                                    <Link to="/admin/users" onClick={() => setRightPanelOpen(false)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-academic-200 hover:bg-academic-50 text-academic-700">
+                                        <Shield className="w-4 h-4" />
+                                        <span>Admin Users</span>
+                                    </Link>
+                                )}
+                                {canSwitchRole && (
+                                    <select
+                                        value={currentUser?.acting_role || ''}
+                                        onChange={(e) => handleRoleSwitch(e.target.value)}
+                                        className="w-full text-sm border border-academic-200 rounded-lg px-3 py-2 bg-white text-academic-700"
+                                        title="Switch role simulation"
+                                    >
+                                        <option value="">Use {currentUser.role}</option>
+                                        {switchableRoles.map((roleOption) => (
+                                            <option key={roleOption} value={roleOption}>
+                                                Use {roleOption}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+
+                                <div className="pt-2 border-t border-academic-200">
+                                    <h4 className="text-xs font-semibold text-academic-500 uppercase tracking-wider mb-2">Explore Topics</h4>
+                                    <div className="max-h-56 overflow-y-auto space-y-1">
+                                        <button
+                                            onClick={async () => {
+                                                await resetHomeFeed();
+                                                setRightPanelOpen(false);
+                                            }}
+                                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-academic-100 text-academic-700"
+                                        >
+                                            All Topics
+                                        </button>
+                                        {(parentTopicMap[0] || []).map((topic) => (
+                                            <button
+                                                key={topic.id}
+                                                onClick={async () => {
+                                                    await handleFilterChange({ sort: feedSort, topic_id: topic.id });
+                                                    setRightPanelOpen(false);
+                                                }}
+                                                className="w-full text-left px-3 py-2 rounded-lg hover:bg-academic-100 text-academic-700"
+                                            >
+                                                {topic.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
+                                    <LogOut className="w-4 h-4" />
+                                    <span>Log out</span>
+                                </button>
+                            </div>
+                        </aside>
+                    </>
+                )}
+
+                {isLoggedIn && (
+                    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-academic-200 bg-white/95 dark:bg-slate-900/95 backdrop-blur px-4 py-2">
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                            <NavLink to="/" onClick={resetHomeFeed} className={({ isActive }) => `flex flex-col items-center gap-1 py-2 rounded-lg ${isActive ? 'text-primary-700 bg-primary-100/70' : 'text-academic-600'}`}>
+                                <HomeIcon className="w-4 h-4" />
+                                <span>Home</span>
+                            </NavLink>
+                            <NavLink to="/search" className={({ isActive }) => `flex flex-col items-center gap-1 py-2 rounded-lg ${isActive ? 'text-primary-700 bg-primary-100/70' : 'text-academic-600'}`}>
+                                <Search className="w-4 h-4" />
+                                <span>Search</span>
+                            </NavLink>
+                            <NavLink to="/messages" className={({ isActive }) => `flex flex-col items-center gap-1 py-2 rounded-lg ${isActive ? 'text-primary-700 bg-primary-100/70' : 'text-academic-600'}`}>
+                                <MessageSquare className="w-4 h-4" />
+                                <span>Messages</span>
+                            </NavLink>
+                        </div>
+                    </nav>
+                )}
             </div>
         </Router>
     );

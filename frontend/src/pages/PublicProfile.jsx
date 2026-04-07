@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, Calendar, Shield, Users, Code, CheckCircle, Mail, Phone, ExternalLink, Flag, MessageSquare } from 'lucide-react';
+import { User, Calendar, Mail, Phone, ExternalLink, Flag, MessageSquare } from 'lucide-react';
 import * as API from '../api';
 
 function formatJoinDate(isoTime) {
@@ -49,36 +49,6 @@ export default function PublicProfile({ posts, currentUser }) {
 
         fetchProfile();
     }, [username]);
-
-    const getRoleIcon = (role) => {
-        switch (role) {
-            case 'Administrator':
-                return <Shield className="w-5 h-5" />;
-            case 'Moderator':
-                return <Users className="w-5 h-5" />;
-            case 'Developer':
-                return <Code className="w-5 h-5" />;
-            case 'Verified User':
-                return <CheckCircle className="w-5 h-5" />;
-            default:
-                return <User className="w-5 h-5" />;
-        }
-    };
-
-    const getRoleColor = (role) => {
-        switch (role) {
-            case 'Administrator':
-                return 'text-red-600 bg-red-50 border-red-200';
-            case 'Moderator':
-                return 'text-orange-600 bg-orange-50 border-orange-200';
-            case 'Developer':
-                return 'text-purple-600 bg-purple-50 border-purple-200';
-            case 'Verified User':
-                return 'text-blue-600 bg-blue-50 border-blue-200';
-            default:
-                return 'text-gray-600 bg-gray-50 border-gray-200';
-        }
-    };
 
     const userPosts = useMemo(() => {
         if (!user || !posts) return [];
@@ -182,10 +152,6 @@ export default function PublicProfile({ posts, currentUser }) {
                         {user.tagline && <p className="text-lg text-academic-700 italic mb-3">{user.tagline}</p>}
 
                         <div className="flex flex-wrap items-center gap-3 mb-4">
-                            <div className={`flex items-center space-x-2 px-3 py-1 rounded-full border ${getRoleColor(user.role)}`}>
-                                {getRoleIcon(user.role)}
-                                <span className="font-medium">{user.role}</span>
-                            </div>
                             <div className="flex items-center space-x-1 text-academic-600">
                                 <Calendar className="w-4 h-4" />
                                 <span className="text-sm">Joined {formatJoinDate(user.created_at)}</span>

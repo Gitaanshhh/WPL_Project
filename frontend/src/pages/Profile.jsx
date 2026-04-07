@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { User, Calendar, Shield, Users, Code, CheckCircle, X, Plus, Upload } from 'lucide-react';
+import { User, Calendar, X, Plus, Upload } from 'lucide-react';
 import * as API from '../api';
 
 function formatJoinDate(isoTime) {
@@ -52,36 +52,6 @@ export default function Profile({ currentUser, posts, onUserUpdate }) {
             links: linksArray
         });
     }, [currentUser]);
-
-    const getRoleIcon = (role) => {
-        switch (role) {
-            case 'Administrator':
-                return <Shield className="w-6 h-6" />;
-            case 'Moderator':
-                return <Users className="w-6 h-6" />;
-            case 'Developer':
-                return <Code className="w-6 h-6" />;
-            case 'Verified User':
-                return <CheckCircle className="w-6 h-6" />;
-            default:
-                return <User className="w-6 h-6" />;
-        }
-    };
-
-    const getRoleColor = (role) => {
-        switch (role) {
-            case 'Administrator':
-                return 'text-red-600 bg-red-50 border-red-200';
-            case 'Moderator':
-                return 'text-orange-600 bg-orange-50 border-orange-200';
-            case 'Developer':
-                return 'text-purple-600 bg-purple-50 border-purple-200';
-            case 'Verified User':
-                return 'text-blue-600 bg-blue-50 border-blue-200';
-            default:
-                return 'text-gray-600 bg-gray-50 border-gray-200';
-        }
-    };
 
     const myPosts = useMemo(() => {
         if (!currentUser) {
@@ -259,10 +229,6 @@ export default function Profile({ currentUser, posts, onUserUpdate }) {
                         <h2 className="text-2xl font-bold text-academic-900 mb-1">{currentUser.full_name || currentUser.username}</h2>
                         <p className="text-sm text-academic-600 mb-3">@{currentUser.username}</p>
                         <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-4">
-                            <div className={`flex items-center space-x-2 px-3 py-1 rounded-full border ${getRoleColor(currentUser.role)}`}>
-                                {getRoleIcon(currentUser.role)}
-                                <span className="font-medium">{currentUser.role}</span>
-                            </div>
                             <div className="flex items-center space-x-1 text-academic-600">
                                 <Calendar className="w-4 h-4" />
                                 <span className="text-sm">Joined {formatJoinDate(currentUser.created_at)}</span>
@@ -465,7 +431,7 @@ export default function Profile({ currentUser, posts, onUserUpdate }) {
                     <div className="text-sm text-academic-600">Discussions</div>
                 </div>
                 <div className="card text-center">
-                    <div className="text-lg font-semibold text-academic-900 mb-1">{currentUser.role}</div>
+                    <div className="text-lg font-semibold text-academic-900 mb-1">Account Status</div>
                     <div className="text-sm text-academic-600">{currentUser.role === 'Verified User' || currentUser.role === 'Administrator' || currentUser.role === 'Developer' || currentUser.role === 'Moderator' ? 'Verified' : 'Not Verified'}</div>
                 </div>
             </div>

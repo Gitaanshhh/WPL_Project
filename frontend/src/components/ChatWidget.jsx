@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageSquare, X, ChevronUp, ChevronDown, Send, ArrowLeft, User, Users, Hash, Plus } from 'lucide-react';
+import { MessageSquare, X, Send, ArrowLeft, User, Users, Hash, Plus } from 'lucide-react';
 import * as API from '../api';
 
 const POLL_INTERVAL = 4000;
@@ -31,8 +31,8 @@ function Avatar({ src, name, size = 10 }) {
     );
 }
 
-export default function ChatWidget({ currentUser, authHeaders, onAuthExpired }) {
-    const [isOpen, setIsOpen] = useState(false);
+export default function ChatWidget({ currentUser, authHeaders, onAuthExpired, pageMode = false, forceOpen = false, hideLauncher = false }) {
+    const [isOpen, setIsOpen] = useState(Boolean(forceOpen));
     const [tab, setTab] = useState('direct');
     const [conversations, setConversations] = useState([]);
     const [topicRooms, setTopicRooms] = useState([]);
@@ -96,7 +96,7 @@ export default function ChatWidget({ currentUser, authHeaders, onAuthExpired }) 
 
     // Poll conversations
     useEffect(() => {
-        if (!currentUser?.token || !isOpen || authInvalid) return;
+        if (!currentUser?.token || (!isOpen && !forceOpen) || authInvalid) return;
         fetchConversations();
         fetchTopicRooms();
         const interval = setInterval(() => {
@@ -104,7 +104,7 @@ export default function ChatWidget({ currentUser, authHeaders, onAuthExpired }) 
             if (tab === 'topic') fetchTopicRooms();
         }, POLL_INTERVAL);
         return () => clearInterval(interval);
-    }, [currentUser?.token, isOpen, tab, authInvalid, fetchConversations, fetchTopicRooms]);
+    }, [currentUser?.token, isOpen, forceOpen, tab, authInvalid, fetchConversations, fetchTopicRooms]);
 
     // Poll unread even when closed
     useEffect(() => {
@@ -137,6 +137,17 @@ export default function ChatWidget({ currentUser, authHeaders, onAuthExpired }) 
     useEffect(() => {
         if (activeConvo) setTimeout(() => inputRef.current?.focus(), 100);
     }, [activeConvo]);
+
+    useEffect(() => {
+        if (forceOpen) {
+            setIsOpen(true);
+            return;
+        }
+
+        const handleOpenChat = () => setIsOpen(true);
+        window.addEventListener('scholr:open-chat', handleOpenChat);
+        return () => window.removeEventListener('scholr:open-chat', handleOpenChat);
+    }, [forceOpen]);
 
     const handleSend = async (e) => {
         e.preventDefault();
@@ -205,10 +216,15 @@ export default function ChatWidget({ currentUser, authHeaders, onAuthExpired }) 
 
     const convoAvatar = activeConvo?.conv_type === 'direct' ? activeConvo.other_user?.profile_picture : null;
 
+    const showPanel = forceOpen || isOpen;
+    const panelClassName = pageMode
+        ? 'w-full h-full bg-white flex flex-col overflow-hidden'
+        : 'fixed inset-x-0 top-0 bottom-16 md:inset-auto md:bottom-0 md:right-2 md:sm:right-6 md:w-96 md:h-[30rem] bg-white md:rounded-t-xl shadow-2xl border border-academic-200 flex flex-col overflow-hidden';
+
     return (
-        <div className="fixed bottom-0 right-6 z-50 flex flex-col items-end">
-            {isOpen && (
-                <div className="w-96 h-[30rem] bg-white rounded-t-xl shadow-2xl border border-academic-200 flex flex-col overflow-hidden">
+        <div className={pageMode ? 'h-full' : 'z-50'}>
+            {showPanel && (
+                <div className={panelClassName}>
                     {activeConvo ? (
                         <>
                             {/* Chat header */}
@@ -229,6 +245,9 @@ export default function ChatWidget({ currentUser, authHeaders, onAuthExpired }) 
                                         <div className="text-[10px] text-primary-200">{activeConvo.member_count} members</div>
                                     )}
                                 </div>
+                                <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-white/20 rounded md:hidden" title="Close messages">
+                                    <X className="w-4 h-4" />
+                                </button>
                             </div>
 
                             {/* Messages */}
@@ -286,7 +305,9 @@ export default function ChatWidget({ currentUser, authHeaders, onAuthExpired }) 
                                     <ArrowLeft className="w-4 h-4" />
                                 </button>
                                 <span className="font-semibold text-sm">New Group Chat</span>
-                                <div className="w-6" />
+                                <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-white/20 rounded md:hidden" title="Close messages">
+                                    <X className="w-4 h-4" />
+                                </button>
                             </div>
                             <form onSubmit={handleCreateGroup} className="flex-1 overflow-y-auto p-4 space-y-3">
                                 <input
@@ -326,18 +347,8 @@ export default function ChatWidget({ currentUser, authHeaders, onAuthExpired }) 
                     ) : (
                         /* Conversations List with Tabs */
                         <>
-                            <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white flex-shrink-0">
-                                <span className="font-semibold text-sm">Messaging</span>
-                                {tab === 'group' && (
-                                    <button onClick={() => { setShowNewGroup(true); loadUsers(); }}
-                                        className="p-1 hover:bg-white/20 rounded" title="New group">
-                                        <Plus className="w-4 h-4" />
-                                    </button>
-                                )}
-                            </div>
-
                             {/* Tabs */}
-                            <div className="flex border-b border-academic-200 flex-shrink-0">
+                            <div className="relative flex border-b border-academic-200 flex-shrink-0">
                                 {TABS.map((t) => {
                                     const Icon = t.icon;
                                     const count = t.key === 'topic' ? 0 :
@@ -346,7 +357,7 @@ export default function ChatWidget({ currentUser, authHeaders, onAuthExpired }) 
                                         <button
                                             key={t.key}
                                             onClick={() => setTab(t.key)}
-                                            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
+                                            className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-medium transition-colors ${
                                                 tab === t.key
                                                     ? 'text-primary-600 border-b-2 border-primary-600'
                                                     : 'text-academic-500 hover:text-academic-700'
@@ -362,6 +373,18 @@ export default function ChatWidget({ currentUser, authHeaders, onAuthExpired }) 
                                         </button>
                                     );
                                 })}
+                                {tab === 'group' && (
+                                    <button
+                                        onClick={() => {
+                                            setShowNewGroup(true);
+                                            loadUsers();
+                                        }}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-academic-600 hover:bg-academic-100"
+                                        title="New group"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                    </button>
+                                )}
                             </div>
 
                             <div className="flex-1 overflow-y-auto">
@@ -447,24 +470,6 @@ export default function ChatWidget({ currentUser, authHeaders, onAuthExpired }) 
                 </div>
             )}
 
-            {/* Bottom Bar Toggle */}
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-t-lg shadow-lg hover:from-primary-700 hover:to-primary-800 transition-all"
-            >
-                {currentUser.profile_picture ? (
-                    <img src={currentUser.profile_picture} alt="" className="w-6 h-6 rounded-full object-cover" />
-                ) : (
-                    <MessageSquare className="w-5 h-5" />
-                )}
-                <span className="text-sm font-semibold">Messaging</span>
-                {unreadTotal > 0 && (
-                    <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
-                        {unreadTotal}
-                    </span>
-                )}
-                {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-            </button>
         </div>
     );
 }
