@@ -194,6 +194,18 @@ function App() {
     const [feedTopicId, setFeedTopicId] = useState(null);
     const [expandedTopicIds, setExpandedTopicIds] = useState({});
 
+    useEffect(() => {
+        const hash = window.location.hash || '';
+        if (!hash.startsWith('#/')) {
+            return;
+        }
+
+        const route = hash.slice(1);
+        if (route.startsWith('/verify-email') || route.startsWith('/reset-password')) {
+            window.history.replaceState({}, '', route);
+        }
+    }, []);
+
     const role = currentUser?.acting_role || currentUser?.role || 'General User';
     const isLoggedIn = Boolean(currentUser);
     const switchableRoles = getSwitchableRoles(currentUser?.role).filter((roleName) => roleName !== currentUser?.role);
@@ -665,7 +677,7 @@ function App() {
                         </div>
                     </aside>
 
-                    <main className="flex-1 p-6 lg:p-8">
+                    <main className="flex-1 p-3 sm:p-5 lg:p-8">
                         <Routes>
                             <Route
                                 path="/"

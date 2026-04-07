@@ -4,6 +4,7 @@ import urllib.request
 import urllib.error
 import logging
 from django.db import IntegrityError
+from django.db.models import Q
 
 from django.conf import settings
 from django.http import JsonResponse
@@ -332,12 +333,14 @@ def login(request):
 	except json.JSONDecodeError:
 		return JsonResponse({'detail': 'Invalid JSON payload.'}, status=400)
 
-	username = (payload.get('username') or '').strip()
+	username = (payload.get('login') or payload.get('username') or payload.get('email') or '').strip()
 	password = payload.get('password') or ''
 	if not username or not password:
-		return JsonResponse({'detail': 'username and password are required.'}, status=400)
+		return JsonResponse({'detail': 'username/email and password are required.'}, status=400)
 
-	user = PlatformUser.objects.filter(username=username, is_active=True).first()
+	user = PlatformUser.objects.filter(is_active=True).filter(
+		Q(username=username) | Q(email__iexact=username)
+	).first()
 	if not user:
 		if settings.DEBUG and username.lower() == 'admin' and password == 'admin':
 			user = PlatformUser.objects.create(

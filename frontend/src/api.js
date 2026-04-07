@@ -136,11 +136,11 @@ export const reportUser = (userId, reportData, authHeaders) =>
   });
 
 // ============ AUTHENTICATION ============
-export const login = (username, password) =>
+export const login = (login, password) =>
   request('/accounts/login/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ login, password }),
   });
 
 export const signup = (userData) =>

@@ -6,7 +6,7 @@ import { supabase, isSupabaseConfigured } from '../supabase';
 
 export default function Login({ onLogin }) {
     const navigate = useNavigate();
-    const [username, setUsername] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -36,11 +36,11 @@ export default function Login({ onLogin }) {
         }
     };
 
-    const submitLogin = async (loginUsername, loginPassword) => {
+    const submitLogin = async (loginIdentifier, loginPassword) => {
         setError('');
         setIsLoading(true);
         try {
-            const data = await API.login(loginUsername, loginPassword);
+            const data = await API.login(loginIdentifier, loginPassword);
             if (!data.token) {
                 setError('Login succeeded but no token was returned.');
                 return;
@@ -56,7 +56,7 @@ export default function Login({ onLogin }) {
 
     const handleLogin = async (e) => {
         e.preventDefault();
-        await submitLogin(username, password);
+        await submitLogin(identifier, password);
     };
 
     return (
@@ -85,14 +85,14 @@ export default function Login({ onLogin }) {
 
                             <form onSubmit={handleLogin} className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-academic-700 mb-1">Username</label>
+                                    <label className="block text-sm font-medium text-academic-700 mb-1">Username or Email</label>
                                     <div className="relative">
                                         <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-academic-400 w-4 h-4" />
                                         <input
                                             type="text"
-                                            placeholder="Enter username"
-                                            value={username}
-                                            onChange={(e) => setUsername(e.target.value)}
+                                            placeholder="Enter username or email"
+                                            value={identifier}
+                                            onChange={(e) => setIdentifier(e.target.value)}
                                             className="input pl-10"
                                             required
                                         />

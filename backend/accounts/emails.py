@@ -2,6 +2,7 @@ import json
 import logging
 from email.utils import parseaddr
 from urllib import error, request
+from urllib.parse import quote
 
 from django.conf import settings
 
@@ -58,7 +59,7 @@ def _frontend_url():
 
 
 def send_verification_email(user, token):
-    link = f'{_frontend_url()}/verify-email?token={token.key}'
+    link = f'{_frontend_url()}/#/verify-email?token={quote(token.key)}'
     text_body = (
         f'Hi {user.full_name},\n\n'
         f'Please verify your email by clicking the link below:\n\n'
@@ -77,7 +78,7 @@ def send_verification_email(user, token):
 
 
 def send_password_reset_email(user, token):
-    link = f'{_frontend_url()}/reset-password?token={token.key}'
+    link = f'{_frontend_url()}/#/reset-password?token={quote(token.key)}'
     text_body = (
         f'Hi {user.full_name},\n\n'
         f'You requested a password reset. Click the link below to set a new password:\n\n'

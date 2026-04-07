@@ -292,71 +292,76 @@ export default function Home({
                         <p className="text-academic-600">Try creating a topic or publish the first discussion.</p>
                     </div>
                 ) : (
-                    posts.map((post) => (
-                        <div key={post.id} className="card card-hover group">
-                            <div className="flex items-start space-x-4">
-                                <div className="flex flex-col items-center space-y-1 flex-shrink-0">
-                                    <button
-                                        className={`p-1 rounded hover:bg-academic-100 transition-colors ${post.user_vote === 1 ? 'text-green-600' : ''}`}
-                                        onClick={() => handleVote(post.id, 1)}
+                    <div className="h-[calc(100vh-17rem)] sm:h-[calc(100vh-15rem)] overflow-y-auto snap-y snap-mandatory rounded-2xl">
+                        {posts.map((post) => (
+                            <article
+                                key={post.id}
+                                className="snap-start min-h-[calc(100vh-17rem)] sm:min-h-[calc(100vh-15rem)] rounded-2xl border border-academic-200 bg-white px-4 py-5 sm:px-8 sm:py-8 mb-4 flex flex-col justify-between shadow-sm"
+                            >
+                                <div className="space-y-5 sm:space-y-6">
+                                    <div className="flex items-center justify-between text-xs text-academic-500">
+                                        <span className="inline-flex items-center rounded-full border border-academic-200 px-2 py-0.5">{post.topic || 'Uncategorized'}</span>
+                                        <span>{formatTime(post.created_at)}</span>
+                                    </div>
+
+                                    <Link
+                                        to={`/post/${post.id}`}
+                                        className="block text-xl sm:text-3xl font-semibold leading-snug text-academic-900 hover:text-primary-700 transition-colors"
                                     >
-                                        <ThumbsUp className="w-4 h-4" />
-                                    </button>
-                                    <span className="text-sm font-medium text-academic-900">{post.score || 0}</span>
-                                    <button
-                                        className={`p-1 rounded hover:bg-academic-100 transition-colors ${post.user_vote === -1 ? 'text-red-600' : ''}`}
-                                        onClick={() => handleVote(post.id, -1)}
-                                    >
-                                        <ThumbsDown className="w-4 h-4" />
-                                    </button>
+                                        {post.content || post.title}
+                                    </Link>
+
+                                    {post.content && post.title && (
+                                        <p className="text-sm sm:text-base text-academic-600 line-clamp-3">{post.title}</p>
+                                    )}
                                 </div>
 
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                            <div className="flex items-center space-x-2 mb-2">
-                                                <span className="badge badge-primary">{post.topic || 'Uncategorized'}</span>
-                                                <span className="text-xs text-academic-500">{formatTime(post.created_at)}</span>
-                                            </div>
+                                <div className="mt-6 border-t border-academic-100 pt-4 flex items-end justify-between gap-3">
+                                    <div className="space-y-1">
+                                        <Link to={`/profile/${post.author}`} className="text-sm sm:text-base font-medium text-academic-700 hover:text-primary-700">
+                                            @{post.author}
+                                        </Link>
+                                        <div className="text-xs text-academic-500">Score {post.score || 0}</div>
+                                    </div>
 
-                                            <Link to={`/post/${post.id}`} className="text-lg font-semibold text-academic-900 hover:text-primary-600 transition-colors line-clamp-2">
-                                                {post.title}
-                                            </Link>
-
-                                            <p className="text-academic-600 mt-2 line-clamp-3">{post.content}</p>
-
-                                            <div className="flex items-center space-x-4 mt-3 text-sm text-academic-500">
-                                                <Link to={`/profile/${post.author}`} className="hover:text-primary-600 hover:underline transition-colors">
-                                                    by @{post.author}
-                                                </Link>
-                                            </div>
-                                        </div>
+                                    <div className="flex items-center gap-1 sm:gap-2">
+                                        <button
+                                            className={`p-2 rounded-lg hover:bg-academic-100 transition-colors ${post.user_vote === 1 ? 'text-green-600' : 'text-academic-600'}`}
+                                            onClick={() => handleVote(post.id, 1)}
+                                            aria-label="Upvote"
+                                        >
+                                            <ThumbsUp className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            className={`p-2 rounded-lg hover:bg-academic-100 transition-colors ${post.user_vote === -1 ? 'text-red-600' : 'text-academic-600'}`}
+                                            onClick={() => handleVote(post.id, -1)}
+                                            aria-label="Downvote"
+                                        >
+                                            <ThumbsDown className="w-5 h-5" />
+                                        </button>
+                                        {canModerate && (
+                                            <button
+                                                onClick={() => handleToggleHidden(post.id, !post.is_hidden)}
+                                                className="p-2 rounded-lg hover:bg-amber-50 text-amber-700 transition-colors"
+                                                title={post.is_hidden ? 'Unhide post' : 'Hide post'}
+                                            >
+                                                {post.is_hidden ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                                            </button>
+                                        )}
+                                        {canModerate && (
+                                            <button
+                                                onClick={() => handleDelete(post.id)}
+                                                className="p-2 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
+                                                title="Delete post permanently"
+                                            >
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
-
-                                <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {canModerate && (
-                                        <button
-                                            onClick={() => handleToggleHidden(post.id, !post.is_hidden)}
-                                            className="p-2 rounded-lg hover:bg-amber-50 text-amber-700 transition-colors"
-                                            title={post.is_hidden ? 'Unhide post' : 'Hide post'}
-                                        >
-                                            {post.is_hidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                                        </button>
-                                    )}
-                                    {canModerate && (
-                                        <button
-                                            onClick={() => handleDelete(post.id)}
-                                            className="p-2 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
-                                            title="Delete post permanently"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ))
+                            </article>
+                        ))}
+                    </div>
                 )}
             </div>
 
