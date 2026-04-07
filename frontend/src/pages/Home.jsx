@@ -334,7 +334,7 @@ export default function Home({
 
                                     <Link
                                         to={`/post/${post.id}`}
-                                        className="inline-block text-sm text-primary-700 hover:text-primary-800 font-medium"
+                                        className="inline-block text-sm text-academic-700 hover:text-academic-900 transition-colors font-medium"
                                     >
                                         Read full post...
                                     </Link>

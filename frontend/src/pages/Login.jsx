@@ -223,8 +223,8 @@ export default function Login({ onLogin }) {
                         return (
                             <div key={card.title} className="w-full py-5 md:py-6 text-center">
                                 <div>
-                                    <h3 className="text-lg font-semibold text-gray-900">{card.title}</h3>
-                                    <p className="mt-1 text-sm md:text-base text-gray-700 max-w-4xl mx-auto">{card.body}</p>
+                                    <h3 className="text-lg font-semibold text-academic-900">{card.title}</h3>
+                                    <p className="mt-1 text-sm md:text-base text-academic-700 max-w-4xl mx-auto">{card.body}</p>
                                 </div>
                             </div>
                         );
@@ -234,21 +234,21 @@ export default function Login({ onLogin }) {
                         return (
                             <div key={row.title} className="w-full py-5 md:py-6 text-center">
                                 <div className="space-y-2">
-                                    <h3 className="text-lg font-semibold text-gray-900">{row.title}</h3>
+                                    <h3 className="text-lg font-semibold text-academic-900">{row.title}</h3>
                                     {row.href ? (
                                         <a
                                             href={row.href}
                                             target="_blank"
                                             rel="noreferrer"
                                             aria-label="LinkedIn"
-                                            className="inline-flex items-center justify-center text-blue-700 hover:text-blue-800"
+                                            className="inline-flex items-center justify-center text-academic-700 hover:text-academic-900 transition-colors"
                                         >
                                             <Linkedin className="w-6 h-6" />
                                         </a>
                                     ) : (
                                         <div className="space-y-1 text-center">
                                             {row.emails.map((email) => (
-                                                <a key={email} href={`mailto:${email}`} className="block text-sm md:text-base text-gray-800 hover:text-black underline underline-offset-4">
+                                                <a key={email} href={`mailto:${email}`} className="block text-sm md:text-base text-academic-700 hover:text-academic-900 transition-colors underline underline-offset-4">
                                                     {email}
                                                 </a>
                                             ))}

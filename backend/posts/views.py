@@ -64,6 +64,35 @@ def _encode_cursor(post):
 	return f'{post.created_at.isoformat()}|{post.id}'
 
 
+def _decode_hot_cursor(cursor):
+	if not cursor:
+		return None, None, None
+
+	parts = cursor.split('|')
+	if len(parts) != 3:
+		return None, None, None
+
+	try:
+		score = int(parts[0])
+	except (TypeError, ValueError):
+		return None, None, None
+
+	created_at = parse_datetime(parts[1])
+	if created_at is None:
+		return None, None, None
+
+	try:
+		post_id = int(parts[2])
+	except (TypeError, ValueError):
+		return None, None, None
+
+	return score, created_at, post_id
+
+
+def _encode_hot_cursor(post):
+	return f'{getattr(post, "score", 0) or 0}|{post.created_at.isoformat()}|{post.id}'
+
+
 def _is_privileged_role(role):
     return role in {
         PlatformUser.ROLE_ADMIN,
@@ -302,6 +331,8 @@ def post_feed(request):
 	viewer_id = request.GET.get('viewer_id')
 	limit_raw = request.GET.get('limit', 10)
 	cursor = request.GET.get('cursor')
+	sort_by = (request.GET.get('sort', 'new') or 'new').lower()
+	topic_id = request.GET.get('topic_id')
 
 	try:
 		limit = max(1, min(int(limit_raw), 50))
@@ -312,14 +343,32 @@ def post_feed(request):
 	if not can_view_hidden:
 		queryset = queryset.filter(is_hidden=False)
 
-	cursor_created_at, cursor_post_id = _decode_cursor(cursor)
-	if cursor_created_at:
-		cursor_filter = Q(created_at__lt=cursor_created_at)
-		if cursor_post_id:
-			cursor_filter |= Q(created_at=cursor_created_at, id__lt=cursor_post_id)
-		queryset = queryset.filter(cursor_filter)
+	if topic_id:
+		try:
+			queryset = queryset.filter(topic_id=int(topic_id))
+		except (TypeError, ValueError):
+			pass
 
-	queryset = queryset.order_by('-created_at', '-id')[: limit + 1]
+	if sort_by == 'hot':
+		queryset = queryset.annotate(score=Coalesce(Sum('votes__value'), 0, output_field=IntegerField()))
+		cursor_score, cursor_created_at, cursor_post_id = _decode_hot_cursor(cursor)
+		if cursor_score is not None and cursor_created_at is not None and cursor_post_id is not None:
+			hot_cursor_filter = (
+				Q(score__lt=cursor_score)
+				| Q(score=cursor_score, created_at__lt=cursor_created_at)
+				| Q(score=cursor_score, created_at=cursor_created_at, id__lt=cursor_post_id)
+			)
+			queryset = queryset.filter(hot_cursor_filter)
+		queryset = queryset.order_by('-score', '-created_at', '-id')[: limit + 1]
+	else:
+		sort_by = 'new'
+		cursor_created_at, cursor_post_id = _decode_cursor(cursor)
+		if cursor_created_at:
+			cursor_filter = Q(created_at__lt=cursor_created_at)
+			if cursor_post_id:
+				cursor_filter |= Q(created_at=cursor_created_at, id__lt=cursor_post_id)
+			queryset = queryset.filter(cursor_filter)
+		queryset = queryset.order_by('-created_at', '-id')[: limit + 1]
 	posts = list(queryset)
 	has_more = len(posts) > limit
 	posts = posts[:limit]
@@ -334,13 +383,18 @@ def post_feed(request):
 			user_votes_data = Vote.objects.filter(post_id__in=post_ids, user_id=viewer_id).values_list('post_id', 'value')
 			user_votes = {post_id: value for post_id, value in user_votes_data}
 
-	next_cursor = _encode_cursor(posts[-1]) if has_more and posts else None
+	if has_more and posts:
+		next_cursor = _encode_hot_cursor(posts[-1]) if sort_by == 'hot' else _encode_cursor(posts[-1])
+	else:
+		next_cursor = None
 
 	return JsonResponse(
 		{
 			'posts': [_post_to_dict(post, user_votes_by_post_id=user_votes, vote_scores_by_post_id=vote_scores) for post in posts],
 			'next_cursor': next_cursor,
 			'has_more': has_more,
+			'sort': sort_by,
+			'topic_id': topic_id,
 		}
 	)
 
