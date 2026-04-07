@@ -84,10 +84,10 @@ function App() {
         }
     };
 
-    const fetchPosts = async (userId = currentUser?.id) => {
+    const fetchPosts = async (userId = currentUser?.id, { sort = 'new', topic_id = null } = {}) => {
         setIsLoadingPosts(true);
         try {
-            const data = await API.fetchPosts(userId);
+            const data = await API.fetchPosts(userId, { sort, topic_id });
             setPosts(data.results || []);
         } catch {
             return;
@@ -178,6 +178,10 @@ function App() {
         } catch (error) {
             alert('Unable to delete post.');
         }
+    };
+
+    const handleFilterChange = async ({ sort = 'new', topic_id = null }) => {
+        await fetchPosts(currentUser?.id, { sort, topic_id });
     };
 
     const handleVote = async (postId, value) => {
@@ -473,6 +477,7 @@ function App() {
                                         handlePostForm={handlePostForm}
                                         handleVote={handleVote}
                                         handleCreateTopic={handleCreateTopic}
+                                        handleFilterChange={handleFilterChange}
                                         formData={formData}
                                         setFormData={setFormData}
                                     />

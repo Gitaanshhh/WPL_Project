@@ -12,13 +12,16 @@ class Vote(models.Model):
 		(DOWNVOTE, 'Downvote'),
 	]
 
-	user = models.ForeignKey(PlatformUser, on_delete=models.CASCADE, related_name='votes')
-	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='votes')
+	user = models.ForeignKey(PlatformUser, on_delete=models.CASCADE, related_name='votes', db_index=True)
+	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='votes', db_index=True)
 	value = models.SmallIntegerField(choices=VALUE_CHOICES)
 	created_at = models.DateTimeField(auto_now_add=True)
 
 	class Meta:
 		unique_together = ('user', 'post')
+		indexes = [
+			models.Index(fields=['post']),
+		]
 
 	def __str__(self):
 		return f"{self.user.username} -> {self.post_id} ({self.value})"
@@ -42,32 +45,38 @@ class Report(models.Model):
 		(STATUS_REJECTED, 'Rejected'),
 	]
 
-	reporter = models.ForeignKey(PlatformUser, on_delete=models.CASCADE, related_name='reports')
-	target_type = models.CharField(max_length=20, choices=TARGET_CHOICES, default=TARGET_POST)
-	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='reports', null=True, blank=True)
-	reported_user = models.ForeignKey(PlatformUser, on_delete=models.CASCADE, related_name='reported_accounts', null=True, blank=True)
+	reporter = models.ForeignKey(PlatformUser, on_delete=models.CASCADE, related_name='reports', db_index=True)
+	target_type = models.CharField(max_length=20, choices=TARGET_CHOICES, default=TARGET_POST, db_index=True)
+	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='reports', null=True, blank=True, db_index=True)
+	reported_user = models.ForeignKey(PlatformUser, on_delete=models.CASCADE, related_name='reported_accounts', null=True, blank=True, db_index=True)
 	reason = models.TextField()
-	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
-	created_at = models.DateTimeField(auto_now_add=True)
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+	created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 	reviewed_at = models.DateTimeField(null=True, blank=True)
 
 	class Meta:
 		ordering = ['-created_at']
+		indexes = [
+			models.Index(fields=['-created_at', 'status']),
+		]
 
 	def __str__(self):
 		return f"Report #{self.id} - {self.target_type} - {self.status}"
 
 
 class Comment(models.Model):
-	author = models.ForeignKey(PlatformUser, on_delete=models.CASCADE, related_name='comments')
-	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments')
+	author = models.ForeignKey(PlatformUser, on_delete=models.CASCADE, related_name='comments', db_index=True)
+	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments', db_index=True)
 	content = models.TextField()
-	is_deleted = models.BooleanField(default=False)
-	created_at = models.DateTimeField(auto_now_add=True)
+	is_deleted = models.BooleanField(default=False, db_index=True)
+	created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 	updated_at = models.DateTimeField(auto_now=True)
 
 	class Meta:
 		ordering = ['created_at']
+		indexes = [
+			models.Index(fields=['post', '-created_at']),
+		]
 
 	def __str__(self):
 		return f"Comment {self.id} by {self.author.username}"

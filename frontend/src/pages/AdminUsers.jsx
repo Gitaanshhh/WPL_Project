@@ -90,18 +90,18 @@ export default function AdminUsers({ currentUser, onUserUpdate }) {
         }
     };
 
-    const banUser = async (userId) => {
+    const toggleUserActiveStatus = async (userId, nextIsActive) => {
         setSavingUserId(userId);
         setError('');
         try {
-            const updatedUser = await API.updateUser(userId, { is_active: false }, {
+            await API.updateUser(userId, { is_active: nextIsActive }, {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${currentUser.token}`,
             });
 
-            setUsers((prev) => prev.map((user) => (user.id === userId ? { ...user, is_active: false } : user)));
+            setUsers((prev) => prev.map((user) => (user.id === userId ? { ...user, is_active: nextIsActive } : user)));
         } catch (err) {
-            setError(err?.message || 'Unable to ban user.');
+            setError(err?.message || `Unable to ${nextIsActive ? 'unban' : 'ban'} user.`);
         } finally {
             setSavingUserId(null);
         }
@@ -189,13 +189,13 @@ export default function AdminUsers({ currentUser, onUserUpdate }) {
                                         <td className="py-4 pr-4">
                                             <div className="flex items-center gap-2">
                                                 <button
-                                                    onClick={() => banUser(user.id)}
-                                                    disabled={savingUserId === user.id || user.id === currentUser.id || !user.is_active}
-                                                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    title={user.id === currentUser.id ? 'Cannot ban your own account' : (!user.is_active ? 'User is already inactive' : 'Ban user')}
+                                                    onClick={() => toggleUserActiveStatus(user.id, !user.is_active)}
+                                                    disabled={savingUserId === user.id || user.id === currentUser.id}
+                                                    className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${user.is_active ? 'border-amber-200 text-amber-700 hover:bg-amber-50' : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'}`}
+                                                    title={user.id === currentUser.id ? 'Cannot change your own account status' : (user.is_active ? 'Ban user' : 'Unban user')}
                                                 >
                                                     <Ban className="w-4 h-4" />
-                                                    Ban
+                                                    {user.is_active ? 'Ban' : 'Unban'}
                                                 </button>
                                                 <button
                                                     onClick={() => deleteUser(user.id)}

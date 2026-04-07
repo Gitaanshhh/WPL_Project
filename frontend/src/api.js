@@ -61,11 +61,15 @@ export const createTopic = (topicData, authHeaders) =>
   });
 
 // ============ POSTS ============
-export const fetchPosts = (userId = null) => {
-  const url = userId 
-    ? `/posts/?viewer_id=${userId}` 
-    : '/posts/';
-  return request(url);
+export const fetchPosts = (userId = null, { sort = 'new', topic_id = null, page = 1 } = {}) => {
+  const params = new URLSearchParams();
+  if (userId) params.append('viewer_id', userId);
+  params.append('sort', sort);
+  if (topic_id && topic_id !== 'all') params.append('topic_id', topic_id);
+  params.append('page', page);
+  
+  const qs = params.toString();
+  return request(`/posts/?${qs}`);
 };
 
 export const createPost = (postData, authHeaders) =>

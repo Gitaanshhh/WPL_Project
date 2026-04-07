@@ -37,10 +37,11 @@ export default function Home({
     handlePostForm,
     handleVote,
     handleCreateTopic,
+    handleFilterChange,
     formData,
     setFormData,
 }) {
-    const [sortBy, setSortBy] = useState('hot');
+    const [sortBy, setSortBy] = useState('new');
     const [filterTopic, setFilterTopic] = useState('all');
     const [showPostForm, setShowPostForm] = useState(false);
     const [showTopicForm, setShowTopicForm] = useState(false);
@@ -50,20 +51,20 @@ export default function Home({
     const canModerate = ['Moderator', 'Administrator', 'Developer'].includes(role);
     const canCreateTopic = role === 'Administrator';
 
-    const filteredPosts = useMemo(
-        () => posts.filter((post) => filterTopic === 'all' || String(post.topic_id) === filterTopic),
-        [posts, filterTopic]
-    );
-
-    const sortedPosts = useMemo(() => {
-        const copy = [...filteredPosts];
-        if (sortBy === 'new') {
-            copy.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        } else {
-            copy.sort((a, b) => (b.score || 0) - (a.score || 0));
+    // Fetch posts with new filters when sort or topic changes
+    const handleSortChange = (newSort) => {
+        setSortBy(newSort);
+        if (handleFilterChange) {
+            handleFilterChange({ sort: newSort, topic_id: filterTopic === 'all' ? null : filterTopic });
         }
-        return copy;
-    }, [filteredPosts, sortBy]);
+    };
+
+    const handleTopicChange = (newTopic) => {
+        setFilterTopic(newTopic);
+        if (handleFilterChange) {
+            handleFilterChange({ sort: sortBy, topic_id: newTopic === 'all' ? null : newTopic });
+        }
+    };
 
     const handleTopicSubmit = async (e) => {
         e.preventDefault();
@@ -236,7 +237,7 @@ export default function Home({
                 <div className="flex flex-wrap gap-2">
                     <div className="flex items-center space-x-2 bg-white rounded-lg border border-academic-200 px-3 py-2">
                         <Filter className="w-4 h-4 text-academic-500" />
-                        <select value={filterTopic} onChange={(e) => setFilterTopic(e.target.value)} className="text-sm border-0 focus:ring-0 bg-transparent">
+                        <select value={filterTopic} onChange={(e) => handleTopicChange(e.target.value)} className="text-sm border-0 focus:ring-0 bg-transparent">
                             <option value="all">All Topics</option>
                             {topics.map((topic) => (
                                 <option key={topic.id} value={String(topic.id)}>
@@ -248,14 +249,14 @@ export default function Home({
 
                     <div className="flex items-center space-x-2 bg-white rounded-lg border border-academic-200 px-3 py-2">
                         <TrendingUp className="w-4 h-4 text-academic-500" />
-                        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="text-sm border-0 focus:ring-0 bg-transparent">
+                        <select value={sortBy} onChange={(e) => handleSortChange(e.target.value)} className="text-sm border-0 focus:ring-0 bg-transparent">
                             <option value="hot">Top Score</option>
                             <option value="new">Newest</option>
                         </select>
                     </div>
                 </div>
 
-                <div className="text-sm text-academic-600">{sortedPosts.length} {sortedPosts.length === 1 ? 'discussion' : 'discussions'}</div>
+                <div className="text-sm text-academic-600">{posts.length} {posts.length === 1 ? 'discussion' : 'discussions'}</div>
             </div>
 
             {!canPost && currentUser && (
@@ -273,14 +274,14 @@ export default function Home({
             <div className="space-y-4">
                 {isLoadingPosts ? (
                     <div className="card text-center py-10 text-academic-600">Loading discussions...</div>
-                ) : sortedPosts.length === 0 ? (
+                ) : posts.length === 0 ? (
                     <div className="card text-center py-12">
                         <MessageSquare className="w-12 h-12 text-academic-300 mx-auto mb-4" />
                         <h3 className="text-lg font-medium text-academic-900 mb-2">No discussions yet</h3>
                         <p className="text-academic-600">Try creating a topic or publish the first discussion.</p>
                     </div>
                 ) : (
-                    sortedPosts.map((post) => (
+                    posts.map((post) => (
                         <div key={post.id} className="card card-hover group">
                             <div className="flex items-start space-x-4">
                                 <div className="flex flex-col items-center space-y-1 flex-shrink-0">
