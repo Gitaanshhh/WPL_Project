@@ -54,10 +54,11 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'backend.middleware.ApiExceptionLoggingMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'False') == 'True'
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept',
@@ -142,18 +143,18 @@ else:
 # ]
 
 _frontend_url = os.environ.get("FRONTEND_URL", "").strip()
-CORS_ALLOWED_ORIGINS = [
-    origin
-    for origin in [
-        _frontend_url,                # production (Vercel from env)
-        "https://scholr-beryl.vercel.app",  # production fallback
-        "http://localhost:5173",     # local dev (Vite)
-        "http://localhost:3000",     # local dev (React/Next)
-    ]
-    if isinstance(origin, str) and origin
+_default_cors_origins = [
+	_frontend_url,                         # production (Vercel from env)
+	"https://scholr-beryl.vercel.app",    # production fallback
+	"http://localhost:5173",              # local dev (Vite)
+	"http://localhost:3000",              # local dev (React/Next)
 ]
 
-CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS.copy()
+CORS_ALLOWED_ORIGINS = [
+	origin for origin in _default_cors_origins if isinstance(origin, str) and origin
+] if not CORS_ALLOW_ALL_ORIGINS else []
+
+CSRF_TRUSTED_ORIGINS = [origin for origin in _default_cors_origins if isinstance(origin, str) and origin]
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -211,6 +212,7 @@ EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.conso
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', 8))
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'Scholr <noreply@scholr.app>')
@@ -221,3 +223,36 @@ FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(asctime)s %(levelname)s %(name)s %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+    },
+    'loggers': {
+        'backend': {
+            'handlers': ['console'],
+            'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}

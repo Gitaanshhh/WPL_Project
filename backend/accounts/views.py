@@ -2,6 +2,7 @@ import json
 import urllib.request
 import urllib.error
 import logging
+import threading
 
 from django.conf import settings
 from django.http import JsonResponse
@@ -14,6 +15,18 @@ from .models import AuthToken, EmailToken, PlatformUser
 
 
 logger = logging.getLogger(__name__)
+
+
+def _run_async(target, *args, **kwargs):
+	thread = threading.Thread(target=target, args=args, kwargs=kwargs, daemon=True)
+	thread.start()
+
+
+def _send_password_reset_safe(user, token):
+	try:
+		send_password_reset_email(user, token)
+	except Exception:
+		logger.exception('Failed to send password reset email for user_id=%s', user.id)
 
 
 def _user_payload(user):
@@ -572,7 +585,7 @@ def forgot_password(request):
 	if user:
 		try:
 			token = EmailToken.create_for(user, EmailToken.PURPOSE_RESET, ttl_hours=1)
-			send_password_reset_email(user, token)
+			_run_async(_send_password_reset_safe, user, token)
 		except Exception:
 			logger.exception('Failed to send password reset email for user_id=%s', user.id)
 
