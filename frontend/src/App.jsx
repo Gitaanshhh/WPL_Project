@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
     Sparkles,
     User as UserIcon,
@@ -58,12 +58,21 @@ function SearchInput({
     currentUser,
 }) {
     const navigate = useNavigate();
+    const location = useLocation();
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    useEffect(() => {
+        if (location.pathname === '/search') {
+            setIsDropdownOpen(false);
+        }
+    }, [location.pathname]);
 
     const goToSearchPage = () => {
         const q = searchQuery.trim();
         if (q.length < 2) {
             return;
         }
+        setIsDropdownOpen(false);
         navigate(`/search?q=${encodeURIComponent(q)}`);
     };
 
@@ -74,7 +83,15 @@ function SearchInput({
                 type="text"
                 placeholder="Search discussions, topics, authors..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setIsDropdownOpen(true);
+                }}
+                onFocus={() => {
+                    if (searchQuery.trim().length >= 2 && location.pathname !== '/search') {
+                        setIsDropdownOpen(true);
+                    }
+                }}
                 onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
@@ -83,7 +100,7 @@ function SearchInput({
                 }}
                 className="w-full pl-10 pr-4 py-2 border border-academic-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
             />
-            {searchQuery.trim().length >= 2 && (
+            {isDropdownOpen && location.pathname !== '/search' && searchQuery.trim().length >= 2 && (
                 <div className="absolute top-full mt-2 w-full bg-white border border-academic-200 rounded-lg shadow-lg p-3 z-50 max-h-96 overflow-y-auto">
                     {isSearching && <div className="text-sm text-academic-500">Searching...</div>}
 
