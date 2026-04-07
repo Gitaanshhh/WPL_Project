@@ -493,7 +493,7 @@ function App() {
             setTopics((prev) => [...prev, data]);
             return true;
         } catch (error) {
-            alert('Unable to create topic.');
+            alert(error?.message || 'Unable to create topic.');
             return false;
         }
     };
@@ -837,17 +837,17 @@ function App() {
                 )}
 
                 {isLoggedIn && (
-                    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-academic-200 bg-white/95 dark:bg-slate-900/95 backdrop-blur px-4 py-2">
+                    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-academic-200 bg-white dark:bg-slate-900 dark:border-slate-700 shadow-[0_-6px_18px_rgba(15,23,42,0.08)] px-4 py-2">
                         <div className="grid grid-cols-3 gap-2 text-xs">
-                            <NavLink to="/" onClick={resetHomeFeed} className={({ isActive }) => `flex flex-col items-center gap-1 py-2 rounded-lg ${isActive ? 'text-primary-700 bg-primary-100/70' : 'text-academic-600'}`}>
+                            <NavLink to="/" onClick={resetHomeFeed} className={({ isActive }) => `flex flex-col items-center gap-1 py-2 rounded-lg transition-colors ${isActive ? 'text-primary-700 bg-primary-100 dark:text-blue-200 dark:bg-slate-800' : 'text-academic-600 dark:text-slate-300'}`}>
                                 <HomeIcon className="w-4 h-4" />
                                 <span>Home</span>
                             </NavLink>
-                            <NavLink to="/search" className={({ isActive }) => `flex flex-col items-center gap-1 py-2 rounded-lg ${isActive ? 'text-primary-700 bg-primary-100/70' : 'text-academic-600'}`}>
+                            <NavLink to="/search" className={({ isActive }) => `flex flex-col items-center gap-1 py-2 rounded-lg transition-colors ${isActive ? 'text-primary-700 bg-primary-100 dark:text-blue-200 dark:bg-slate-800' : 'text-academic-600 dark:text-slate-300'}`}>
                                 <Search className="w-4 h-4" />
                                 <span>Search</span>
                             </NavLink>
-                            <NavLink to="/messages" className={({ isActive }) => `flex flex-col items-center gap-1 py-2 rounded-lg ${isActive ? 'text-primary-700 bg-primary-100/70' : 'text-academic-600'}`}>
+                            <NavLink to="/messages" className={({ isActive }) => `flex flex-col items-center gap-1 py-2 rounded-lg transition-colors ${isActive ? 'text-primary-700 bg-primary-100 dark:text-blue-200 dark:bg-slate-800' : 'text-academic-600 dark:text-slate-300'}`}>
                                 <MessageSquare className="w-4 h-4" />
                                 <span>Messages</span>
                             </NavLink>
