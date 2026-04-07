@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import {
     Sparkles,
     User as UserIcon,
@@ -30,6 +30,7 @@ import AdminUsers from './pages/AdminUsers';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
+import SearchResults from './pages/SearchResults';
 import ChatWidget from './components/ChatWidget';
 import * as API from './api';
 import './index.css';
@@ -45,6 +46,120 @@ function getSwitchableRoles(baseRole) {
         return ['Verified User', 'General User'];
     }
     return [];
+}
+
+function SearchInput({
+    searchQuery,
+    setSearchQuery,
+    isSearching,
+    searchResults,
+    feedSort,
+    handleFilterChange,
+    currentUser,
+}) {
+    const navigate = useNavigate();
+
+    const goToSearchPage = () => {
+        const q = searchQuery.trim();
+        if (q.length < 2) {
+            return;
+        }
+        navigate(`/search?q=${encodeURIComponent(q)}`);
+    };
+
+    return (
+        <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-academic-400 w-4 h-4" />
+            <input
+                type="text"
+                placeholder="Search discussions, topics, authors..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        goToSearchPage();
+                    }
+                }}
+                className="w-full pl-10 pr-4 py-2 border border-academic-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+            />
+            {searchQuery.trim().length >= 2 && (
+                <div className="absolute top-full mt-2 w-full bg-white border border-academic-200 rounded-lg shadow-lg p-3 z-50 max-h-96 overflow-y-auto">
+                    {isSearching && <div className="text-sm text-academic-500">Searching...</div>}
+
+                    {!isSearching && searchResults.topics.length === 0 && searchResults.posts.length === 0 && searchResults.users.length === 0 && (
+                        <div className="text-sm text-academic-500">No results found.</div>
+                    )}
+
+                    {!isSearching && searchResults.topics.length > 0 && (
+                        <div className="mb-3">
+                            <div className="text-xs font-semibold uppercase tracking-wider text-academic-500 mb-1">Topics</div>
+                            <div className="space-y-1">
+                                {searchResults.topics.map((topic) => (
+                                    <button
+                                        key={`topic-${topic.id}`}
+                                        onClick={() => {
+                                            handleFilterChange({ sort: feedSort, topic_id: topic.id });
+                                            setSearchQuery('');
+                                            navigate('/');
+                                        }}
+                                        className="w-full text-left px-2 py-1 rounded hover:bg-academic-100 text-sm text-academic-700"
+                                    >
+                                        {topic.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {!isSearching && searchResults.posts.length > 0 && (
+                        <div className="mb-3">
+                            <div className="text-xs font-semibold uppercase tracking-wider text-academic-500 mb-1">Posts</div>
+                            <div className="space-y-1">
+                                {searchResults.posts.map((post) => (
+                                    <Link
+                                        key={`post-${post.id}`}
+                                        to={`/post/${post.id}`}
+                                        onClick={() => setSearchQuery('')}
+                                        className="block px-2 py-1 rounded hover:bg-academic-100 text-sm"
+                                    >
+                                        <div className="text-academic-800 line-clamp-1">{post.title}</div>
+                                        <div className="text-xs text-academic-500">by @{post.author}{post.topic ? ` in ${post.topic}` : ''}</div>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {!isSearching && searchResults.users.length > 0 && (
+                        <div>
+                            <div className="text-xs font-semibold uppercase tracking-wider text-academic-500 mb-1">Users</div>
+                            <div className="space-y-1">
+                                {searchResults.users.map((user) => (
+                                    <Link
+                                        key={`user-${user.id}`}
+                                        to={currentUser?.username === user.username ? '/profile' : `/profile/${user.username}`}
+                                        onClick={() => setSearchQuery('')}
+                                        className="block px-2 py-1 rounded hover:bg-academic-100 text-sm"
+                                    >
+                                        <div className="text-academic-800">@{user.username}</div>
+                                        <div className="text-xs text-academic-500 line-clamp-1">{user.full_name}</div>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <button
+                        onClick={goToSearchPage}
+                        className="mt-3 w-full text-sm text-primary-700 hover:text-primary-900 font-medium"
+                    >
+                        View all results
+                    </button>
+                </div>
+            )}
+        </div>
+    );
 }
 
 function App() {
@@ -242,6 +357,11 @@ function App() {
         }));
     };
 
+    const resetHomeFeed = async () => {
+        setSearchQuery('');
+        await handleFilterChange({ sort: 'new', topic_id: null });
+    };
+
     const handleVote = async (postId, value) => {
         if (!currentUser) {
             alert('Please log in to vote.');
@@ -381,83 +501,15 @@ function App() {
                             </div>
 
                             <div className="hidden md:flex flex-1 max-w-md mx-8">
-                                <div className="relative w-full">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-academic-400 w-4 h-4" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search discussions, topics, authors..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2 border border-academic-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                                    />
-                                    {searchQuery.trim().length >= 2 && (
-                                        <div className="absolute top-full mt-2 w-full bg-white border border-academic-200 rounded-lg shadow-lg p-3 z-50 max-h-96 overflow-y-auto">
-                                            {isSearching && <div className="text-sm text-academic-500">Searching...</div>}
-
-                                            {!isSearching && searchResults.topics.length === 0 && searchResults.posts.length === 0 && searchResults.users.length === 0 && (
-                                                <div className="text-sm text-academic-500">No results found.</div>
-                                            )}
-
-                                            {!isSearching && searchResults.topics.length > 0 && (
-                                                <div className="mb-3">
-                                                    <div className="text-xs font-semibold uppercase tracking-wider text-academic-500 mb-1">Topics</div>
-                                                    <div className="space-y-1">
-                                                        {searchResults.topics.map((topic) => (
-                                                            <button
-                                                                key={`topic-${topic.id}`}
-                                                                onClick={() => {
-                                                                    handleFilterChange({ sort: feedSort, topic_id: topic.id });
-                                                                    setSearchQuery('');
-                                                                }}
-                                                                className="w-full text-left px-2 py-1 rounded hover:bg-academic-100 text-sm text-academic-700"
-                                                            >
-                                                                {topic.name}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {!isSearching && searchResults.posts.length > 0 && (
-                                                <div className="mb-3">
-                                                    <div className="text-xs font-semibold uppercase tracking-wider text-academic-500 mb-1">Posts</div>
-                                                    <div className="space-y-1">
-                                                        {searchResults.posts.map((post) => (
-                                                            <Link
-                                                                key={`post-${post.id}`}
-                                                                to={`/post/${post.id}`}
-                                                                onClick={() => setSearchQuery('')}
-                                                                className="block px-2 py-1 rounded hover:bg-academic-100 text-sm"
-                                                            >
-                                                                <div className="text-academic-800 line-clamp-1">{post.title}</div>
-                                                                <div className="text-xs text-academic-500">by @{post.author}{post.topic ? ` in ${post.topic}` : ''}</div>
-                                                            </Link>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {!isSearching && searchResults.users.length > 0 && (
-                                                <div>
-                                                    <div className="text-xs font-semibold uppercase tracking-wider text-academic-500 mb-1">Users</div>
-                                                    <div className="space-y-1">
-                                                        {searchResults.users.map((user) => (
-                                                            <Link
-                                                                key={`user-${user.id}`}
-                                                                to={currentUser?.username === user.username ? '/profile' : `/profile/${user.username}`}
-                                                                onClick={() => setSearchQuery('')}
-                                                                className="block px-2 py-1 rounded hover:bg-academic-100 text-sm"
-                                                            >
-                                                                <div className="text-academic-800">@{user.username}</div>
-                                                                <div className="text-xs text-academic-500 line-clamp-1">{user.full_name}</div>
-                                                            </Link>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
+                                <SearchInput
+                                    searchQuery={searchQuery}
+                                    setSearchQuery={setSearchQuery}
+                                    isSearching={isSearching}
+                                    searchResults={searchResults}
+                                    feedSort={feedSort}
+                                    handleFilterChange={handleFilterChange}
+                                    currentUser={currentUser}
+                                />
                             </div>
 
                             <div className="flex items-center space-x-4">
@@ -533,7 +585,7 @@ function App() {
                                 <div>
                                     <h3 className="text-xs font-semibold text-academic-500 uppercase tracking-wider mb-3">Navigation</h3>
                                     <div className="space-y-1">
-                                        <Link to="/" className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-academic-100 text-academic-700 transition-colors">
+                                        <Link to="/" onClick={resetHomeFeed} className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-academic-100 text-academic-700 transition-colors">
                                             <HomeIcon className="w-4 h-4" />
                                             <span>Home Feed</span>
                                         </Link>
@@ -632,6 +684,7 @@ function App() {
                             <Route path="/forgot-password" element={<ForgotPassword />} />
                             <Route path="/reset-password" element={<ResetPassword />} />
                             <Route path="/verify-email" element={<VerifyEmail />} />
+                            <Route path="/search" element={<SearchResults currentUser={currentUser} onTopicSelect={(topicId) => handleFilterChange({ sort: 'new', topic_id: topicId })} />} />
                         </Routes>
                     </main>
                 </div>
