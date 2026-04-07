@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, MessageSquare, ThumbsUp, ThumbsDown, Trash2, TrendingUp, Filter, Eye, FolderPlus } from 'lucide-react';
 
@@ -29,6 +29,8 @@ function formatTime(isoTime) {
 
 export default function Home({
     posts,
+    activeSort,
+    activeTopicId,
     role,
     currentUser,
     topics,
@@ -50,6 +52,14 @@ export default function Home({
     const canPost = role !== 'General User';
     const canModerate = ['Moderator', 'Administrator', 'Developer'].includes(role);
     const canCreateTopic = role === 'Administrator';
+
+    useEffect(() => {
+        setSortBy(activeSort || 'new');
+    }, [activeSort]);
+
+    useEffect(() => {
+        setFilterTopic(activeTopicId == null ? 'all' : String(activeTopicId));
+    }, [activeTopicId]);
 
     // Fetch posts with new filters when sort or topic changes
     const handleSortChange = (newSort) => {

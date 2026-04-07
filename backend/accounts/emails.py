@@ -8,7 +8,7 @@ def _frontend_url():
 
 def send_verification_email(user, token):
     link = f'{_frontend_url()}/verify-email?token={token.key}'
-    send_mail(
+    return send_mail(
         subject='Verify your Scholr email',
         message=(
             f'Hi {user.full_name},\n\n'
@@ -19,13 +19,13 @@ def send_verification_email(user, token):
         ),
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
-        fail_silently=True,
-    )
+        fail_silently=False,
+    ) > 0
 
 
 def send_password_reset_email(user, token):
     link = f'{_frontend_url()}/reset-password?token={token.key}'
-    send_mail(
+    return send_mail(
         subject='Reset your Scholr password',
         message=(
             f'Hi {user.full_name},\n\n'
@@ -36,8 +36,8 @@ def send_password_reset_email(user, token):
         ),
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
-        fail_silently=True,
-    )
+        fail_silently=False,
+    ) > 0
 
 
 def send_welcome_email(user, needs_verification=True):
@@ -62,10 +62,10 @@ def send_welcome_email(user, needs_verification=True):
             f'Log in here: {link}\n\n'
             f'— Scholr'
         )
-    send_mail(
+    return send_mail(
         subject='Welcome to Scholr!',
         message=body,
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
-        fail_silently=True,
-    )
+        fail_silently=False,
+    ) > 0

@@ -1,4 +1,5 @@
 from django.db.models import Sum, Prefetch, Q, F, IntegerField
+from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import cache_page
@@ -107,7 +108,7 @@ def posts_collection(request):
 	if request.method == 'GET':
 		viewer_id = request.GET.get('viewer_id')
 		page_num = request.GET.get('page', 1)
-		sort_by = request.GET.get('sort', 'new')  # 'new' or 'hot'
+		sort_by = (request.GET.get('sort', 'new') or 'new').lower()  # 'new' or 'hot'
 		topic_id = request.GET.get('topic_id')
 		
 		# Build queryset with filters
@@ -123,11 +124,12 @@ def posts_collection(request):
 		
 		# Apply sorting
 		if sort_by == 'hot':
-			# Sort by score (votes), using vote aggregation
+			# Sort by score (votes), treating NULL as 0 so unvoted posts do not float to top.
 			queryset = queryset.annotate(
-				score=Sum('votes__value', output_field=IntegerField()) or 0
+				score=Coalesce(Sum('votes__value'), 0, output_field=IntegerField())
 			).order_by('-score', '-created_at')
 		else:
+			sort_by = 'new'
 			# Default: sort by newest (uses index: (-created_at, is_deleted))
 			queryset = queryset.order_by('-created_at')
 		

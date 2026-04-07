@@ -57,6 +57,8 @@ function App() {
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoadingPosts, setIsLoadingPosts] = useState(false);
     const [theme, setTheme] = useState(() => localStorage.getItem(THEME_STORAGE_KEY) || 'light');
+    const [feedSort, setFeedSort] = useState('new');
+    const [feedTopicId, setFeedTopicId] = useState(null);
 
     const role = currentUser?.acting_role || currentUser?.role || 'General User';
     const isLoggedIn = Boolean(currentUser);
@@ -129,7 +131,7 @@ function App() {
 
     useEffect(() => {
         fetchTopics();
-        fetchPosts(currentUser?.id);
+        fetchPosts(currentUser?.id, { sort: feedSort, topic_id: feedTopicId });
     }, [currentUser?.id]);
 
     const filteredPosts = useMemo(() => {
@@ -184,6 +186,8 @@ function App() {
     };
 
     const handleFilterChange = async ({ sort = 'new', topic_id = null }) => {
+        setFeedSort(sort);
+        setFeedTopicId(topic_id);
         await fetchPosts(currentUser?.id, { sort, topic_id });
     };
 
@@ -435,7 +439,10 @@ function App() {
                                     <div className="space-y-2">
                                         {(parentTopicMap[0] || []).map((topic) => (
                                             <div key={topic.id} className="group">
-                                                <button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-academic-100 text-academic-700 transition-colors">
+                                                <button
+                                                    onClick={() => handleFilterChange({ sort: feedSort, topic_id: topic.id })}
+                                                    className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-academic-100 text-academic-700 transition-colors"
+                                                >
                                                     <div className="flex items-center space-x-2">
                                                         <FileText className="w-4 h-4" />
                                                         <span className="font-medium">{topic.name}</span>
@@ -447,12 +454,13 @@ function App() {
                                                 {(parentTopicMap[topic.id] || []).length > 0 && (
                                                     <div className="ml-6 mt-1 space-y-1 hidden group-hover:block">
                                                         {(parentTopicMap[topic.id] || []).map((sub) => (
-                                                            <div
+                                                            <button
                                                                 key={sub.id}
-                                                                className="block px-3 py-1 text-sm text-academic-600 hover:text-academic-900 hover:bg-academic-50 rounded transition-colors"
+                                                                onClick={() => handleFilterChange({ sort: feedSort, topic_id: sub.id })}
+                                                                className="block w-full text-left px-3 py-1 text-sm text-academic-600 hover:text-academic-900 hover:bg-academic-50 rounded transition-colors"
                                                             >
                                                                 {sub.name}
-                                                            </div>
+                                                            </button>
                                                         ))}
                                                     </div>
                                                 )}
@@ -472,6 +480,8 @@ function App() {
                                 element={
                                     <Home
                                         posts={filteredPosts}
+                                        activeSort={feedSort}
+                                        activeTopicId={feedTopicId}
                                         role={role}
                                         currentUser={currentUser}
                                         topics={topics}

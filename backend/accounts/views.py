@@ -1,6 +1,7 @@
 import json
 import urllib.request
 import urllib.error
+import logging
 
 from django.conf import settings
 from django.http import JsonResponse
@@ -10,6 +11,9 @@ from django.contrib.auth.hashers import check_password, make_password
 from .auth import get_allowed_role_switch_targets, get_authenticated_user, get_bearer_token, get_effective_role
 from .emails import send_verification_email, send_password_reset_email, send_welcome_email
 from .models import AuthToken, EmailToken, PlatformUser
+
+
+logger = logging.getLogger(__name__)
 
 
 def _user_payload(user):
@@ -499,8 +503,15 @@ def send_verification(request):
 	if actor.email_verified:
 		return JsonResponse({'detail': 'Email is already verified.'})
 
-	token = EmailToken.create_for(actor, EmailToken.PURPOSE_VERIFY)
-	send_verification_email(actor, token)
+	try:
+		token = EmailToken.create_for(actor, EmailToken.PURPOSE_VERIFY)
+		sent = send_verification_email(actor, token)
+		if not sent:
+			return JsonResponse({'detail': 'Email service could not send the verification email.'}, status=503)
+	except Exception:
+		logger.exception('Failed to send verification email for user_id=%s', actor.id)
+		return JsonResponse({'detail': 'Email service is temporarily unavailable.'}, status=503)
+
 	return JsonResponse({'detail': 'Verification email sent.'})
 
 
