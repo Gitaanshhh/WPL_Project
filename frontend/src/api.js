@@ -160,6 +160,41 @@ export const getMe = (authHeaders) =>
     headers: authHeaders,
   });
 
+// ============ EMAIL & PASSWORD ============
+export const sendVerification = (authHeaders) =>
+  request('/accounts/send-verification/', {
+    method: 'POST',
+    headers: authHeaders,
+  });
+
+export const verifyEmail = (token) =>
+  request('/accounts/verify-email/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+
+export const forgotPassword = (email) =>
+  request('/accounts/forgot-password/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+
+export const resetPassword = (token, password) =>
+  request('/accounts/reset-password/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password }),
+  });
+
+export const changePassword = (currentPassword, newPassword, authHeaders) =>
+  request('/accounts/change-password/', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+
 // ============ USERS ============
 export const getUser = (userId, authHeaders) =>
   request(`/accounts/users/${userId}/`, {

@@ -124,6 +124,12 @@ export default function Login({ onLogin }) {
                                 <button type="submit" className="btn btn-primary w-full" disabled={isLoading}>
                                     {isLoading ? 'Signing in...' : 'Sign In'}
                                 </button>
+
+                                <div className="text-right">
+                                    <Link to="/forgot-password" className="text-sm text-primary-600 hover:text-primary-700">
+                                        Forgot password?
+                                    </Link>
+                                </div>
                             </form>
 
                             <div className="relative my-6">

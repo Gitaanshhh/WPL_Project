@@ -1,6 +1,10 @@
 from django.urls import path
 
-from .views import login, logout, me, oauth_callback, public_profile, role_options, switchable_roles, user_detail, users
+from .views import (
+    change_password, forgot_password, login, logout, me, oauth_callback,
+    public_profile, reset_password, role_options, send_verification,
+    switchable_roles, user_detail, users, verify_email,
+)
 
 urlpatterns = [
     path('login/', login, name='login'),
@@ -12,4 +16,9 @@ urlpatterns = [
     path('switchable-roles/', switchable_roles, name='switchable-roles'),
     path('users/', users, name='users'),
     path('users/<int:user_id>/', user_detail, name='user-detail'),
+    path('send-verification/', send_verification, name='send-verification'),
+    path('verify-email/', verify_email, name='verify-email'),
+    path('forgot-password/', forgot_password, name='forgot-password'),
+    path('reset-password/', reset_password, name='reset-password'),
+    path('change-password/', change_password, name='change-password'),
 ]

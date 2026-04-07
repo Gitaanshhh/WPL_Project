@@ -28,6 +28,9 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import AuthCallback from './pages/AuthCallback';
 import AdminUsers from './pages/AdminUsers';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 import ChatWidget from './components/ChatWidget';
 import * as API from './api';
 import './index.css';
@@ -491,7 +494,10 @@ function App() {
                             <Route path="/profile" element={<Profile currentUser={currentUser} posts={posts} onUserUpdate={handleLoginSuccess} />} />
                             <Route path="/profile/:username" element={<PublicProfile posts={posts} currentUser={currentUser} />} />
                             <Route path="/moderation/reports" element={<ModerationReports currentUser={currentUser} />} />
-                            <Route path="/settings" element={<Settings currentUser={currentUser} />} />
+                            <Route path="/settings" element={<Settings currentUser={currentUser} authHeaders={authHeaders} />} />
+                            <Route path="/forgot-password" element={<ForgotPassword />} />
+                            <Route path="/reset-password" element={<ResetPassword />} />
+                            <Route path="/verify-email" element={<VerifyEmail />} />
                         </Routes>
                     </main>
                 </div>

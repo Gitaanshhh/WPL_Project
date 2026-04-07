@@ -8,8 +8,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import check_password, make_password
 
 from .auth import get_allowed_role_switch_targets, get_authenticated_user, get_bearer_token, get_effective_role
-from .models import PlatformUser
-from .models import AuthToken
+from .emails import send_verification_email, send_password_reset_email, send_welcome_email
+from .models import AuthToken, EmailToken, PlatformUser
 
 
 def _user_payload(user):
@@ -188,6 +188,12 @@ def users(request):
 			bio=payload.get('bio', ''),
 			role=PlatformUser.ROLE_GENERAL,
 		)
+
+		# Send welcome email + verification email
+		send_welcome_email(user)
+		verify_token = EmailToken.create_for(user, EmailToken.PURPOSE_VERIFY)
+		send_verification_email(user, verify_token)
+
 		return JsonResponse({'id': user.id, 'username': user.username, 'role': user.role}, status=201)
 
 	return JsonResponse({'detail': 'Method not allowed.'}, status=405)
@@ -463,3 +469,144 @@ def public_profile(request, username):
 		return JsonResponse({'detail': 'User not found.'}, status=404)
 
 	return JsonResponse(_user_payload(user))
+
+
+@csrf_exempt
+def send_verification(request):
+	"""POST — send/resend email verification link."""
+	if request.method != 'POST':
+		return JsonResponse({'detail': 'Method not allowed.'}, status=405)
+
+	actor = get_authenticated_user(request)
+	if not actor:
+		return JsonResponse({'detail': 'Authentication required.'}, status=401)
+
+	if actor.email_verified:
+		return JsonResponse({'detail': 'Email is already verified.'})
+
+	token = EmailToken.create_for(actor, EmailToken.PURPOSE_VERIFY)
+	send_verification_email(actor, token)
+	return JsonResponse({'detail': 'Verification email sent.'})
+
+
+@csrf_exempt
+def verify_email(request):
+	"""POST { "token": "..." } — verify email address."""
+	if request.method != 'POST':
+		return JsonResponse({'detail': 'Method not allowed.'}, status=405)
+
+	try:
+		payload = json.loads(request.body or '{}')
+	except json.JSONDecodeError:
+		return JsonResponse({'detail': 'Invalid JSON payload.'}, status=400)
+
+	key = (payload.get('token') or '').strip()
+	if not key:
+		return JsonResponse({'detail': 'token is required.'}, status=400)
+
+	token = EmailToken.objects.filter(key=key, purpose=EmailToken.PURPOSE_VERIFY).first()
+	if not token or not token.is_valid():
+		return JsonResponse({'detail': 'Invalid or expired verification link.'}, status=400)
+
+	user = token.user
+	token.is_used = True
+	token.save(update_fields=['is_used'])
+
+	if not user.email_verified:
+		user.email_verified = True
+		updates = ['email_verified']
+		if user.role == PlatformUser.ROLE_GENERAL:
+			user.role = PlatformUser.ROLE_VERIFIED
+			updates.append('role')
+		user.save(update_fields=updates)
+
+	return JsonResponse({'detail': 'Email verified successfully.', **_user_payload(user)})
+
+
+@csrf_exempt
+def forgot_password(request):
+	"""POST { "email": "..." } — send password reset link."""
+	if request.method != 'POST':
+		return JsonResponse({'detail': 'Method not allowed.'}, status=405)
+
+	try:
+		payload = json.loads(request.body or '{}')
+	except json.JSONDecodeError:
+		return JsonResponse({'detail': 'Invalid JSON payload.'}, status=400)
+
+	email = (payload.get('email') or '').strip()
+	if not email:
+		return JsonResponse({'detail': 'email is required.'}, status=400)
+
+	# Always return success to prevent email enumeration
+	user = PlatformUser.objects.filter(email=email, is_active=True).first()
+	if user:
+		token = EmailToken.create_for(user, EmailToken.PURPOSE_RESET, ttl_hours=1)
+		send_password_reset_email(user, token)
+
+	return JsonResponse({'detail': 'If that email exists, a reset link has been sent.'})
+
+
+@csrf_exempt
+def reset_password(request):
+	"""POST { "token": "...", "password": "..." } — reset password with token."""
+	if request.method != 'POST':
+		return JsonResponse({'detail': 'Method not allowed.'}, status=405)
+
+	try:
+		payload = json.loads(request.body or '{}')
+	except json.JSONDecodeError:
+		return JsonResponse({'detail': 'Invalid JSON payload.'}, status=400)
+
+	key = (payload.get('token') or '').strip()
+	new_password = (payload.get('password') or '').strip()
+	if not key or not new_password:
+		return JsonResponse({'detail': 'token and password are required.'}, status=400)
+
+	if len(new_password) < 6:
+		return JsonResponse({'detail': 'Password must be at least 6 characters.'}, status=400)
+
+	token = EmailToken.objects.filter(key=key, purpose=EmailToken.PURPOSE_RESET).first()
+	if not token or not token.is_valid():
+		return JsonResponse({'detail': 'Invalid or expired reset link.'}, status=400)
+
+	user = token.user
+	token.is_used = True
+	token.save(update_fields=['is_used'])
+
+	user.password_hash = make_password(new_password)
+	user.save(update_fields=['password_hash'])
+
+	return JsonResponse({'detail': 'Password has been reset. You can now log in.'})
+
+
+@csrf_exempt
+def change_password(request):
+	"""POST { "current_password": "...", "new_password": "..." } — change password (authenticated)."""
+	if request.method != 'POST':
+		return JsonResponse({'detail': 'Method not allowed.'}, status=405)
+
+	actor = get_authenticated_user(request)
+	if not actor:
+		return JsonResponse({'detail': 'Authentication required.'}, status=401)
+
+	try:
+		payload = json.loads(request.body or '{}')
+	except json.JSONDecodeError:
+		return JsonResponse({'detail': 'Invalid JSON payload.'}, status=400)
+
+	current = (payload.get('current_password') or '').strip()
+	new_pw = (payload.get('new_password') or '').strip()
+
+	if not current or not new_pw:
+		return JsonResponse({'detail': 'current_password and new_password are required.'}, status=400)
+
+	if len(new_pw) < 6:
+		return JsonResponse({'detail': 'New password must be at least 6 characters.'}, status=400)
+
+	if not check_password(current, actor.password_hash):
+		return JsonResponse({'detail': 'Current password is incorrect.'}, status=401)
+
+	actor.password_hash = make_password(new_pw)
+	actor.save(update_fields=['password_hash'])
+	return JsonResponse({'detail': 'Password changed successfully.'})

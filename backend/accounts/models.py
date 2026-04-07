@@ -82,3 +82,29 @@ class AuthToken(models.Model):
 
 	def is_valid(self):
 		return (not self.is_revoked) and self.expires_at > timezone.now()
+
+
+class EmailToken(models.Model):
+	"""Reusable token model for email verification and password reset."""
+	PURPOSE_VERIFY = 'verify'
+	PURPOSE_RESET = 'reset'
+	PURPOSE_CHOICES = [
+		(PURPOSE_VERIFY, 'Email Verification'),
+		(PURPOSE_RESET, 'Password Reset'),
+	]
+
+	user = models.ForeignKey(PlatformUser, on_delete=models.CASCADE, related_name='email_tokens')
+	key = models.CharField(max_length=64, unique=True, db_index=True)
+	purpose = models.CharField(max_length=10, choices=PURPOSE_CHOICES)
+	created_at = models.DateTimeField(auto_now_add=True)
+	expires_at = models.DateTimeField()
+	is_used = models.BooleanField(default=False)
+
+	@classmethod
+	def create_for(cls, user, purpose, ttl_hours=24):
+		cls.objects.filter(user=user, purpose=purpose, is_used=False).update(is_used=True)
+		expires_at = timezone.now() + timezone.timedelta(hours=ttl_hours)
+		return cls.objects.create(user=user, key=secrets.token_urlsafe(32), purpose=purpose, expires_at=expires_at)
+
+	def is_valid(self):
+		return (not self.is_used) and self.expires_at > timezone.now()
