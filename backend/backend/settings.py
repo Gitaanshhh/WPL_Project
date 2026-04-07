@@ -57,7 +57,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True  # Allow all origins for MVP development
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -69,6 +70,14 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
     'x-acting-role',
+]
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -136,11 +145,15 @@ _frontend_url = os.environ.get("FRONTEND_URL", "").strip()
 CORS_ALLOWED_ORIGINS = [
     origin
     for origin in [
-        _frontend_url,                # production (Vercel)
+        _frontend_url,                # production (Vercel from env)
+        "https://scholr-beryl.vercel.app",  # production fallback
+        "http://localhost:5173",     # local dev (Vite)
         "http://localhost:3000",     # local dev (React/Next)
     ]
     if isinstance(origin, str) and origin
 ]
+
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS.copy()
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

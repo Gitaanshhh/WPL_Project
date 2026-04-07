@@ -486,6 +486,9 @@ def public_profile(request, username):
 @csrf_exempt
 def send_verification(request):
 	"""POST — send/resend email verification link."""
+	if request.method == 'OPTIONS':
+		return JsonResponse({'detail': 'OK'}, status=200)
+
 	if request.method != 'POST':
 		return JsonResponse({'detail': 'Method not allowed.'}, status=405)
 
