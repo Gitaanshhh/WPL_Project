@@ -304,15 +304,22 @@ export default function Home({
                                         <span>{formatTime(post.created_at)}</span>
                                     </div>
 
-                                    <Link
-                                        to={`/post/${post.id}`}
-                                        className="block text-xs sm:text-sm font-semibold leading-relaxed text-academic-900 hover:text-primary-700 transition-colors line-clamp-8"
-                                    >
-                                        {post.content || post.title}
-                                    </Link>
+                                    {post.title && (
+                                        <Link
+                                            to={`/post/${post.id}`}
+                                            className="block text-xl sm:text-2xl font-bold leading-tight text-academic-900 hover:text-primary-700 transition-colors line-clamp-3"
+                                        >
+                                            {post.title}
+                                        </Link>
+                                    )}
 
-                                    {post.content && post.title && (
-                                        <p className="text-xs sm:text-sm text-academic-600 line-clamp-2">{post.title}</p>
+                                    {post.content && (
+                                        <Link
+                                            to={`/post/${post.id}`}
+                                            className="block text-xs sm:text-sm font-normal leading-relaxed text-academic-700 hover:text-primary-700 transition-colors line-clamp-6"
+                                        >
+                                            {post.content}
+                                        </Link>
                                     )}
 
                                     <Link
