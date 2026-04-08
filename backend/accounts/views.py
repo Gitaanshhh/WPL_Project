@@ -18,6 +18,12 @@ from .models import AuthToken, EmailToken, PlatformUser
 
 logger = logging.getLogger(__name__)
 
+LOCAL_DEV_AUTO_VERIFY_ROLES = {
+	PlatformUser.ROLE_ADMIN,
+	PlatformUser.ROLE_DEVELOPER,
+	PlatformUser.ROLE_VERIFIED,
+}
+
 
 def _user_payload(user):
 	"""Build the standard user JSON response dict."""
@@ -363,6 +369,10 @@ def login(request):
 
 	if not check_password(password, user.password_hash):
 		return JsonResponse({'detail': 'Invalid credentials.'}, status=401)
+
+	if settings.DEBUG and (not user.email_verified) and user.role in LOCAL_DEV_AUTO_VERIFY_ROLES:
+		user.email_verified = True
+		user.save(update_fields=['email_verified'])
 
 	token = AuthToken.issue_for_user(user)
 

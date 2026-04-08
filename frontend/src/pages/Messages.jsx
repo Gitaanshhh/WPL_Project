@@ -63,6 +63,19 @@ export default function Messages({ currentUser, authHeaders, onAuthExpired }) {
         );
     }
 
+    if (!currentUser.email_verified) {
+        return (
+            <div className="card max-w-xl mx-auto text-center space-y-3">
+                <h1 className="text-2xl font-bold text-academic-900">Messages</h1>
+                <p className="text-academic-600">Messaging is available only for verified users.</p>
+                <p className="text-sm text-academic-500">Please verify your email to access conversations.</p>
+                <div>
+                    <Link to="/settings" className="btn btn-primary">Verify Email in Settings</Link>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="-mx-3 -my-3 sm:-mx-5 sm:-my-5 lg:-mx-8 lg:-my-8 h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)]">
             {isResolvingConversation && (

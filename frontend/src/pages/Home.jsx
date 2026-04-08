@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, MessageSquare, ThumbsUp, ThumbsDown, Trash2, TrendingUp, Filter, Eye, EyeOff, FolderPlus } from 'lucide-react';
+import { Plus, MessageSquare, ThumbsUp, ThumbsDown, Trash2, TrendingUp, Filter, Eye, EyeOff, FolderPlus, ChevronDown, ChevronRight } from 'lucide-react';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import MarkdownContent from '../components/MarkdownContent';
 
@@ -55,6 +55,10 @@ export default function Home({
     const [showTopicForm, setShowTopicForm] = useState(false);
     const [topicDraft, setTopicDraft] = useState({ name: '', parent_id: '' });
     const [isPreviewingPost, setIsPreviewingPost] = useState(false);
+    const [postTopicSearch, setPostTopicSearch] = useState('');
+    const [isPostTopicPickerOpen, setIsPostTopicPickerOpen] = useState(false);
+    const [expandedPostTopicIds, setExpandedPostTopicIds] = useState({});
+    const postTopicPickerRef = useRef(null);
 
     const canPost = role !== 'General User';
     const canModerate = ['Moderator', 'Administrator', 'Developer'].includes(role);
@@ -142,6 +146,137 @@ export default function Home({
         walk('root', 0);
         return flattened;
     }, [topics]);
+
+    const selectedPostTopic = useMemo(
+        () => topics.find((topic) => String(topic.id) === String(formData.topic_id)) || null,
+        [topics, formData.topic_id]
+    );
+
+    useEffect(() => {
+        if (isPostTopicPickerOpen) {
+            return;
+        }
+        setPostTopicSearch(selectedPostTopic?.name || '');
+    }, [selectedPostTopic?.id, selectedPostTopic?.name, isPostTopicPickerOpen]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (postTopicPickerRef.current && !postTopicPickerRef.current.contains(event.target)) {
+                setIsPostTopicPickerOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const postTopicTree = useMemo(() => {
+        const childrenByParent = new Map();
+        topics.forEach((topic) => {
+            const key = topic.parent_id == null ? 'root' : String(topic.parent_id);
+            if (!childrenByParent.has(key)) {
+                childrenByParent.set(key, []);
+            }
+            childrenByParent.get(key).push(topic);
+        });
+
+        for (const topicList of childrenByParent.values()) {
+            topicList.sort((a, b) => a.name.localeCompare(b.name));
+        }
+
+        const query = postTopicSearch.trim().toLowerCase();
+        const collectVisible = (parentKey, depth) => {
+            const children = childrenByParent.get(parentKey) || [];
+            const visibleItems = [];
+
+            children.forEach((topic) => {
+                const childItems = collectVisible(String(topic.id), depth + 1);
+                const matchesQuery = !query || topic.name.toLowerCase().includes(query);
+                const isVisible = matchesQuery || childItems.length > 0;
+                if (!isVisible) {
+                    return;
+                }
+
+                visibleItems.push({
+                    topic,
+                    depth,
+                    children: childItems,
+                });
+            });
+
+            return visibleItems;
+        };
+
+        return {
+            items: collectVisible('root', 0),
+            hasQuery: Boolean(query),
+        };
+    }, [topics, postTopicSearch]);
+
+    const togglePostTopicExpanded = (topicId) => {
+        setExpandedPostTopicIds((prev) => ({
+            ...prev,
+            [topicId]: !prev[topicId],
+        }));
+    };
+
+    const selectPostTopic = (topic) => {
+        setFormData({ ...formData, topic_id: String(topic.id) });
+        setPostTopicSearch(topic.name);
+        setIsPostTopicPickerOpen(false);
+    };
+
+    const clearPostTopicSelection = () => {
+        setFormData({ ...formData, topic_id: '' });
+        setPostTopicSearch('');
+    };
+
+    const renderPostTopicNode = (node) => {
+        const hasChildren = node.children.length > 0;
+        const shouldExpand = postTopicTree.hasQuery || expandedPostTopicIds[node.topic.id] || false;
+
+        return (
+            <div key={node.topic.id}>
+                <div
+                    className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${
+                        String(formData.topic_id) === String(node.topic.id)
+                            ? 'bg-primary-100 text-primary-800'
+                            : 'hover:bg-academic-100 text-academic-800'
+                    }`}
+                    style={{ paddingLeft: `${node.depth * 16 + 8}px` }}
+                >
+                    {hasChildren ? (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                togglePostTopicExpanded(node.topic.id);
+                            }}
+                            className="rounded p-0.5 text-academic-500 hover:bg-academic-200"
+                            aria-label={shouldExpand ? 'Collapse topic' : 'Expand topic'}
+                        >
+                            {shouldExpand ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                    ) : (
+                        <span className="w-5" />
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={() => selectPostTopic(node.topic)}
+                        className="flex-1 text-left text-sm"
+                    >
+                        {node.topic.name}
+                    </button>
+                </div>
+
+                {hasChildren && shouldExpand && (
+                    <div>{node.children.map((child) => renderPostTopicNode(child))}</div>
+                )}
+            </div>
+        );
+    };
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
@@ -231,18 +366,63 @@ export default function Home({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-academic-700 mb-1">Academic Topic</label>
-                                <select
-                                    value={formData.topic_id}
-                                    onChange={(e) => setFormData({ ...formData, topic_id: e.target.value })}
-                                    className="input"
-                                >
-                                    <option value="">Select a topic...</option>
-                                    {topicOptions.map((topic) => (
-                                        <option key={topic.id} value={topic.id}>
-                                            {`${'   '.repeat(topic.depth)}${topic.name}`}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div ref={postTopicPickerRef} className="relative">
+                                    <input
+                                        type="text"
+                                        value={postTopicSearch}
+                                        onFocus={() => setIsPostTopicPickerOpen(true)}
+                                        onChange={(e) => {
+                                            setPostTopicSearch(e.target.value);
+                                            setIsPostTopicPickerOpen(true);
+                                        }}
+                                        placeholder="Type to search topic..."
+                                        className="input pr-10"
+                                    />
+
+                                    {(postTopicSearch || formData.topic_id) && (
+                                        <button
+                                            type="button"
+                                            onClick={clearPostTopicSelection}
+                                            className="absolute inset-y-0 right-8 text-academic-400 hover:text-academic-700"
+                                            aria-label="Clear selected topic"
+                                        >
+                                            ×
+                                        </button>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsPostTopicPickerOpen((prev) => !prev)}
+                                        className="absolute inset-y-0 right-2 text-academic-500 hover:text-academic-800"
+                                        aria-label="Toggle topic list"
+                                    >
+                                        <ChevronDown className="h-4 w-4" />
+                                    </button>
+
+                                    {isPostTopicPickerOpen && (
+                                        <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-academic-200 bg-white p-2 shadow-lg">
+                                            <button
+                                                type="button"
+                                                onClick={clearPostTopicSelection}
+                                                className={`w-full rounded-md px-2 py-1.5 text-left text-sm ${
+                                                    !formData.topic_id
+                                                        ? 'bg-primary-100 text-primary-800'
+                                                        : 'text-academic-700 hover:bg-academic-100'
+                                                }`}
+                                            >
+                                                No topic
+                                            </button>
+
+                                            {postTopicTree.items.length > 0 ? (
+                                                <div className="mt-1 space-y-0.5">
+                                                    {postTopicTree.items.map((node) => renderPostTopicNode(node))}
+                                                </div>
+                                            ) : (
+                                                <div className="px-2 py-2 text-sm text-academic-500">No topics match your search.</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             <div>

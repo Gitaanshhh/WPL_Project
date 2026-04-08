@@ -228,6 +228,15 @@ export default function Profile({ currentUser, posts, onUserUpdate }) {
                     <div className="flex-1 text-center md:text-left">
                         <h2 className="text-2xl font-bold text-academic-900 mb-1">{currentUser.full_name || currentUser.username}</h2>
                         <p className="text-sm text-academic-600 mb-3">@{currentUser.username}</p>
+                        <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold mb-3 ${
+                                currentUser.email_verified
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-amber-100 text-amber-800'
+                            }`}
+                        >
+                            {currentUser.email_verified ? 'Verified' : 'Unverified'}
+                        </span>
                         <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-4">
                             <div className="flex items-center space-x-1 text-academic-600">
                                 <Calendar className="w-4 h-4" />

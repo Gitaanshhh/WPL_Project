@@ -83,7 +83,7 @@ export default function PublicProfile({ posts, currentUser }) {
 
     const links = user.links || {};
     const canReport = Boolean(currentUser && (currentUser.acting_role || currentUser.role) !== 'General User');
-    const canMessage = Boolean(currentUser && currentUser.id !== user?.id);
+    const canMessage = Boolean(currentUser && currentUser.id !== user?.id && currentUser.email_verified);
 
     const handleMessage = () => {
         if (!canMessage) return;
@@ -139,6 +139,15 @@ export default function PublicProfile({ posts, currentUser }) {
                     <div className="flex-1">
                         <h1 className="text-3xl font-bold text-academic-900 mb-2">{user.full_name}</h1>
                         <p className="text-lg text-primary-600 font-medium mb-3">@{user.username}</p>
+                        <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold mb-3 ${
+                                user.email_verified
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-amber-100 text-amber-800'
+                            }`}
+                        >
+                            {user.email_verified ? 'Verified' : 'Unverified'}
+                        </span>
 
                         {user.tagline && <p className="text-lg text-academic-700 italic mb-3">{user.tagline}</p>}
 
@@ -157,6 +166,15 @@ export default function PublicProfile({ posts, currentUser }) {
                                 >
                                     <MessageSquare className="w-4 h-4" />
                                     Message
+                                </button>
+                            )}
+                            {currentUser && currentUser.id !== user?.id && !currentUser.email_verified && (
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/settings')}
+                                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-amber-200 text-sm text-amber-700 bg-amber-50 hover:bg-amber-100"
+                                >
+                                    Verify email to message users
                                 </button>
                             )}
                             {user.email && (

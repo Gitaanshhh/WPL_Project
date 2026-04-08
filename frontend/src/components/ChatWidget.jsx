@@ -3,6 +3,16 @@ import { MessageSquare, X, Send, ArrowLeft, User } from 'lucide-react';
 import * as API from '../api';
 
 const POLL_INTERVAL = 4000;
+const CHAT_STORAGE_PREFIX = 'scholr:chat-state';
+
+function safeParseJson(raw, fallback) {
+    if (!raw) return fallback;
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return fallback;
+    }
+}
 
 function timeAgo(dateStr) {
     if (!dateStr) return '';
@@ -44,8 +54,16 @@ export default function ChatWidget({
     const [unreadTotal, setUnreadTotal] = useState(0);
     const [sending, setSending] = useState(false);
     const [authInvalid, setAuthInvalid] = useState(false);
+    const [cachedMessagesByConvo, setCachedMessagesByConvo] = useState({});
+    const [draftsByConvo, setDraftsByConvo] = useState({});
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
+    const hasHydratedCacheRef = useRef(false);
+    const hydratedUserIdRef = useRef(null);
+    const appliedInitialConversationIdRef = useRef(null);
+    const appliedInitialRecipientIdRef = useRef(null);
+
+    const storageKey = currentUser?.id ? `${CHAT_STORAGE_PREFIX}:${currentUser.id}` : '';
 
     const headers = useCallback(() => authHeaders(true), [authHeaders]);
 
@@ -64,9 +82,18 @@ export default function ChatWidget({
         if (!currentUser?.token || authInvalid) return;
         try {
             const data = await API.getConversations(headers());
-            setConversations(data.results || []);
-            const total = (data.results || []).reduce((sum, c) => sum + (c.unread_count || 0), 0);
+            const nextConversations = data.results || [];
+            setConversations(nextConversations);
+            const total = nextConversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
             setUnreadTotal(total);
+
+            setActiveConvo((prev) => {
+                if (!prev?.id) {
+                    return prev;
+                }
+                const refreshed = nextConversations.find((item) => item.id === prev.id);
+                return refreshed || prev;
+            });
         } catch (err) {
             handleAuthError(err);
         }
@@ -76,11 +103,68 @@ export default function ChatWidget({
         if (!activeConvo || !currentUser?.token || authInvalid) return;
         try {
             const data = await API.getMessages(activeConvo.id, headers());
-            setMessages(data.results || []);
+            const nextMessages = data.results || [];
+            setMessages(nextMessages);
+            setCachedMessagesByConvo((prev) => ({
+                ...prev,
+                [activeConvo.id]: nextMessages,
+            }));
         } catch (err) {
             handleAuthError(err);
         }
     }, [activeConvo, currentUser?.token, authInvalid, headers, handleAuthError]);
+
+    useEffect(() => {
+        if (!currentUser?.id) {
+            hasHydratedCacheRef.current = false;
+            hydratedUserIdRef.current = null;
+            return;
+        }
+
+        if (hasHydratedCacheRef.current && hydratedUserIdRef.current === currentUser.id) return;
+
+        hasHydratedCacheRef.current = true;
+        hydratedUserIdRef.current = currentUser.id;
+
+        const saved = safeParseJson(localStorage.getItem(`${CHAT_STORAGE_PREFIX}:${currentUser.id}`), null);
+        if (!saved) return;
+
+        if (!forceOpen && typeof saved.isOpen === 'boolean') {
+            setIsOpen(saved.isOpen);
+        }
+
+        if (Array.isArray(saved.conversations)) {
+            setConversations(saved.conversations);
+        }
+
+        if (saved.cachedMessagesByConvo && typeof saved.cachedMessagesByConvo === 'object') {
+            setCachedMessagesByConvo(saved.cachedMessagesByConvo);
+        }
+
+        if (saved.draftsByConvo && typeof saved.draftsByConvo === 'object') {
+            setDraftsByConvo(saved.draftsByConvo);
+        }
+
+        if (saved.activeConvo && typeof saved.activeConvo.id === 'number') {
+            setActiveConvo(saved.activeConvo);
+            const cachedForActive = saved.cachedMessagesByConvo?.[saved.activeConvo.id] || [];
+            setMessages(cachedForActive);
+            setNewMessage(saved.draftsByConvo?.[saved.activeConvo.id] || '');
+        }
+    }, [currentUser?.id, forceOpen]);
+
+    useEffect(() => {
+        if (!storageKey || !hasHydratedCacheRef.current) return;
+
+        const serialized = JSON.stringify({
+            isOpen,
+            activeConvo,
+            conversations,
+            cachedMessagesByConvo,
+            draftsByConvo,
+        });
+        localStorage.setItem(storageKey, serialized);
+    }, [storageKey, isOpen, activeConvo, conversations, cachedMessagesByConvo, draftsByConvo]);
 
     // Poll conversations
     useEffect(() => {
@@ -136,23 +220,56 @@ export default function ChatWidget({
     }, [forceOpen]);
 
     useEffect(() => {
-        if (!initialConversation?.id) return;
+        const conversationId = Number(initialConversation?.id);
+        if (!Number.isFinite(conversationId)) return;
+        if (appliedInitialConversationIdRef.current === conversationId) return;
+
+        appliedInitialConversationIdRef.current = conversationId;
         setIsOpen(true);
         setActiveConvo(initialConversation);
-        setMessages([]);
-    }, [initialConversation]);
+        setMessages(cachedMessagesByConvo[conversationId] || []);
+        setNewMessage(draftsByConvo[conversationId] || '');
+    }, [initialConversation?.id]);
 
     useEffect(() => {
-        if (!initialRecipientId || activeConvo) return;
+        if (!initialRecipientId) return;
+
+        const recipientKey = String(initialRecipientId);
+        if (appliedInitialRecipientIdRef.current === recipientKey) return;
+
         const targetId = Number(initialRecipientId);
         if (!Number.isFinite(targetId)) return;
+
         const convo = conversations.find((item) => item?.conv_type === 'direct' && Number(item?.other_user?.id) === targetId);
         if (convo) {
+            appliedInitialRecipientIdRef.current = recipientKey;
             setIsOpen(true);
             setActiveConvo(convo);
-            setMessages([]);
+            setMessages(cachedMessagesByConvo[convo.id] || []);
+            setNewMessage(draftsByConvo[convo.id] || '');
         }
-    }, [initialRecipientId, activeConvo, conversations]);
+    }, [initialRecipientId, conversations]);
+
+    useEffect(() => {
+        if (!activeConvo?.id) {
+            setNewMessage('');
+            return;
+        }
+        setNewMessage(draftsByConvo[activeConvo.id] || '');
+    }, [activeConvo?.id, draftsByConvo]);
+
+    useEffect(() => {
+        if (!activeConvo?.id) return;
+        setDraftsByConvo((prev) => {
+            if ((prev[activeConvo.id] || '') === newMessage) {
+                return prev;
+            }
+            return {
+                ...prev,
+                [activeConvo.id]: newMessage,
+            };
+        });
+    }, [activeConvo?.id, newMessage]);
 
     const handleSend = async (e) => {
         e.preventDefault();
@@ -161,8 +278,19 @@ export default function ChatWidget({
         setSending(true);
         try {
             const msg = await API.sendMessage(activeConvo.id, content, headers());
-            setMessages((prev) => [...prev, msg]);
+            setMessages((prev) => {
+                const next = [...prev, msg];
+                setCachedMessagesByConvo((cachePrev) => ({
+                    ...cachePrev,
+                    [activeConvo.id]: next,
+                }));
+                return next;
+            });
             setNewMessage('');
+            setDraftsByConvo((prev) => ({
+                ...prev,
+                [activeConvo.id]: '',
+            }));
             fetchConversations();
         } catch { /* ignore */ }
         setSending(false);
@@ -170,16 +298,26 @@ export default function ChatWidget({
 
     const openChat = (convo) => {
         setActiveConvo(convo);
-        setMessages([]);
+        setMessages(cachedMessagesByConvo[convo.id] || []);
+        setNewMessage(draftsByConvo[convo.id] || '');
     };
 
     const backToList = () => {
         setActiveConvo(null);
         setMessages([]);
+        setNewMessage('');
         fetchConversations();
     };
 
-    const filteredConvos = conversations.filter((c) => c.conv_type === 'direct');
+    const filteredConvos = conversations
+        .filter((c) => c.conv_type === 'direct')
+        .filter((convo, index, list) => {
+            const otherId = convo?.other_user?.id;
+            if (!otherId) {
+                return true;
+            }
+            return list.findIndex((candidate) => candidate?.other_user?.id === otherId) === index;
+        });
 
     if (!currentUser) return null;
 
@@ -276,7 +414,7 @@ export default function ChatWidget({
                                             <button
                                                 key={convo.id}
                                                 onClick={() => openChat(convo)}
-                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-academic-50 transition-colors text-left border-b border-academic-100"
+                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-academic-50 transition-colors text-left"
                                             >
                                                 <Avatar src={pic} name={displayName} size={10} />
                                                 <div className="flex-1 min-w-0">

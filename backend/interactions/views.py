@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Q, Sum
 from django.http import JsonResponse
 from django.utils import timezone
@@ -294,11 +295,20 @@ def comment_detail(request, comment_id):
 
 # ============ CHAT ============
 
+def _require_verified_for_messaging(actor):
+    if actor.email_verified:
+        return None
+    return JsonResponse({'detail': 'Email verification is required to use messaging.'}, status=403)
+
 def chat_users(request):
     """GET: list active users for starting conversations (lightweight, any logged-in user)."""
     actor = get_authenticated_user(request)
     if not actor:
         return JsonResponse({'detail': 'Authentication required.'}, status=401)
+
+    verification_error = _require_verified_for_messaging(actor)
+    if verification_error:
+        return verification_error
 
     if request.method != 'GET':
         return JsonResponse({'detail': 'Method not allowed.'}, status=405)
@@ -373,6 +383,31 @@ def _find_direct_conversation(user_a, user_b):
     ).first()
 
 
+def _dedupe_direct_conversations_for_actor(conversations, actor):
+    """Keep only one DM per counterpart user (newest by queryset ordering)."""
+    deduped = []
+    seen_other_user_ids = set()
+
+    for convo in conversations:
+        if convo.conv_type != Conversation.TYPE_DIRECT:
+            deduped.append(convo)
+            continue
+
+        members = list(convo.members.select_related('user').all())
+        other_member = next((m for m in members if m.user_id != actor.id), None)
+        if not other_member:
+            deduped.append(convo)
+            continue
+
+        if other_member.user_id in seen_other_user_ids:
+            continue
+
+        seen_other_user_ids.add(other_member.user_id)
+        deduped.append(convo)
+
+    return deduped
+
+
 @csrf_exempt
 def conversations_list(request):
     """GET: list conversations. POST: start a DM or group chat."""
@@ -380,12 +415,18 @@ def conversations_list(request):
     if not actor:
         return JsonResponse({'detail': 'Authentication required.'}, status=401)
 
+    verification_error = _require_verified_for_messaging(actor)
+    if verification_error:
+        return verification_error
+
     if request.method == 'GET':
         conv_type = request.GET.get('type', '')
         convo_ids = ConversationMember.objects.filter(user=actor).values_list('conversation_id', flat=True)
         convos = Conversation.objects.filter(id__in=convo_ids).select_related('topic')
         if conv_type:
             convos = convos.filter(conv_type=conv_type)
+
+        convos = _dedupe_direct_conversations_for_actor(convos, actor)
 
         results = [_convo_payload(c, actor) for c in convos]
         return JsonResponse({'results': results})
@@ -407,13 +448,24 @@ def conversations_list(request):
             if other_user.id == actor.id:
                 return JsonResponse({'detail': 'Cannot message yourself.'}, status=400)
 
-            convo = _find_direct_conversation(actor, other_user)
-            if not convo:
-                convo = Conversation.objects.create(conv_type=Conversation.TYPE_DIRECT, created_by=actor)
-                ConversationMember.objects.create(conversation=convo, user=actor)
-                ConversationMember.objects.create(conversation=convo, user=other_user)
+            created = False
+            with transaction.atomic():
+                first_id, second_id = sorted([actor.id, other_user.id])
+                list(
+                    PlatformUser.objects.select_for_update()
+                    .filter(id__in=[first_id, second_id])
+                    .order_by('id')
+                    .values_list('id', flat=True)
+                )
 
-            return JsonResponse(_convo_payload(convo, actor), status=201)
+                convo = _find_direct_conversation(actor, other_user)
+                if not convo:
+                    convo = Conversation.objects.create(conv_type=Conversation.TYPE_DIRECT, created_by=actor)
+                    ConversationMember.objects.create(conversation=convo, user=actor)
+                    ConversationMember.objects.create(conversation=convo, user=other_user)
+                    created = True
+
+            return JsonResponse(_convo_payload(convo, actor), status=201 if created else 200)
 
         if conv_type == Conversation.TYPE_GROUP:
             name = (payload.get('name') or '').strip()
@@ -443,6 +495,10 @@ def conversation_messages(request, convo_id):
     actor = get_authenticated_user(request)
     if not actor:
         return JsonResponse({'detail': 'Authentication required.'}, status=401)
+
+    verification_error = _require_verified_for_messaging(actor)
+    if verification_error:
+        return verification_error
 
     membership = ConversationMember.objects.filter(conversation_id=convo_id, user=actor).first()
     if not membership:
@@ -501,6 +557,10 @@ def unread_count(request):
     if not actor:
         return JsonResponse({'detail': 'Authentication required.'}, status=401)
 
+    verification_error = _require_verified_for_messaging(actor)
+    if verification_error:
+        return verification_error
+
     if request.method != 'GET':
         return JsonResponse({'detail': 'Method not allowed.'}, status=405)
 
@@ -521,6 +581,10 @@ def topic_rooms(request):
     actor = get_authenticated_user(request)
     if not actor:
         return JsonResponse({'detail': 'Authentication required.'}, status=401)
+
+    verification_error = _require_verified_for_messaging(actor)
+    if verification_error:
+        return verification_error
 
     if request.method == 'GET':
         from posts.models import Topic

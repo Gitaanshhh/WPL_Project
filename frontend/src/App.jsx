@@ -214,6 +214,7 @@ function App() {
     const canSwitchRole = isLoggedIn && switchableRoles.length > 0;
     const canModerateReports = ['Administrator', 'Developer', 'Moderator'].includes(role);
     const isAdminRole = role === 'Administrator';
+    const canUseMessaging = Boolean(currentUser?.email_verified);
 
     const authHeaders = (hasJson = false) => {
         const headers = {};
@@ -634,10 +635,12 @@ function App() {
                                             <HomeIcon className="w-4 h-4" />
                                             <span>Home Feed</span>
                                         </Link>
-                                        <Link to="/messages" className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-academic-100 text-academic-700 transition-colors">
-                                            <MessageSquare className="w-4 h-4" />
-                                            <span>Messages</span>
-                                        </Link>
+                                        {canUseMessaging && (
+                                            <Link to="/messages" className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-academic-100 text-academic-700 transition-colors">
+                                                <MessageSquare className="w-4 h-4" />
+                                                <span>Messages</span>
+                                            </Link>
+                                        )}
                                         {isAdminRole && (
                                             <Link to="/admin/users" className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-academic-100 text-academic-700 transition-colors">
                                                 <Shield className="w-4 h-4" />
@@ -847,10 +850,12 @@ function App() {
                                 <Search className="w-4 h-4" />
                                 <span>Search</span>
                             </NavLink>
-                            <NavLink to="/messages" className={({ isActive }) => `flex flex-col items-center gap-1 py-2 rounded-lg transition-colors ${isActive ? 'text-primary-700 bg-primary-100 dark:text-blue-200 dark:bg-slate-800' : 'text-academic-700 dark:text-slate-300'}`}>
-                                <MessageSquare className="w-4 h-4" />
-                                <span>Messages</span>
-                            </NavLink>
+                            {canUseMessaging && (
+                                <NavLink to="/messages" className={({ isActive }) => `flex flex-col items-center gap-1 py-2 rounded-lg transition-colors ${isActive ? 'text-primary-700 bg-primary-100 dark:text-blue-200 dark:bg-slate-800' : 'text-academic-700 dark:text-slate-300'}`}>
+                                    <MessageSquare className="w-4 h-4" />
+                                    <span>Messages</span>
+                                </NavLink>
+                            )}
                         </div>
                     </nav>
                 )}
