@@ -74,7 +74,13 @@ def create_signed_url_for_path(path, expires_in=None):
                 return None
             if signed_url.startswith('http://') or signed_url.startswith('https://'):
                 return signed_url
-            return f"{settings.SUPABASE_URL.rstrip('/')}{signed_url}"
+            if signed_url.startswith('/storage/v1/'):
+                return f"{settings.SUPABASE_URL.rstrip('/')}{signed_url}"
+            if signed_url.startswith('/object/sign/'):
+                return f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1{signed_url}"
+            if signed_url.startswith('/'):
+                return f"{settings.SUPABASE_URL.rstrip('/')}{signed_url}"
+            return f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/{signed_url}"
     except (urllib.error.HTTPError, urllib.error.URLError, ValueError):
         return None
 

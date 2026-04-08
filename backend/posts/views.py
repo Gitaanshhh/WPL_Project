@@ -101,7 +101,13 @@ def _create_supabase_signed_url(path, expires_in=None):
 				return None, JsonResponse({'detail': 'Supabase did not return a signed URL.'}, status=502)
 			if signed_url.startswith('http://') or signed_url.startswith('https://'):
 				return signed_url, None
-			return f"{settings.SUPABASE_URL.rstrip('/')}{signed_url}", None
+			if signed_url.startswith('/storage/v1/'):
+				return f"{settings.SUPABASE_URL.rstrip('/')}{signed_url}", None
+			if signed_url.startswith('/object/sign/'):
+				return f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1{signed_url}", None
+			if signed_url.startswith('/'):
+				return f"{settings.SUPABASE_URL.rstrip('/')}{signed_url}", None
+			return f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/{signed_url}", None
 	except urllib.error.HTTPError as exc:
 		raw_message = exc.read().decode('utf-8', errors='ignore') or exc.reason or 'Failed to create signed URL.'
 		return None, JsonResponse({'detail': raw_message}, status=exc.code)
