@@ -27,6 +27,7 @@ class Post(models.Model):
 	title = models.CharField(max_length=255)
 	content = models.TextField()
 	references = models.TextField(blank=True)
+	media_items = models.JSONField(default=list, blank=True)
 	is_deleted = models.BooleanField(default=False, db_index=True)
 	is_hidden = models.BooleanField(default=False, db_index=True)
 	created_at = models.DateTimeField(auto_now_add=True, db_index=True)

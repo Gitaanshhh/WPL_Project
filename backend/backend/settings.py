@@ -209,6 +209,9 @@ SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
 SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', '')
 SUPABASE_JWT_SECRET = os.environ.get('SUPABASE_JWT_SECRET', '')
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+SUPABASE_PROFILE_BUCKET = os.environ.get('SUPABASE_PROFILE_BUCKET', 'profile-pictures')
+SUPABASE_POST_MEDIA_BUCKET = os.environ.get('SUPABASE_POST_MEDIA_BUCKET', 'profile-pictures')
+SUPABASE_SIGNED_URL_TTL_SECONDS = int(os.environ.get('SUPABASE_SIGNED_URL_TTL_SECONDS', '300') or '300')
 
 # Caching configuration
 CACHES = {

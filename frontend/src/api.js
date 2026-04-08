@@ -102,6 +102,13 @@ export const createPost = (postData, authHeaders) =>
     body: JSON.stringify(postData),
   });
 
+export const uploadPostMedia = (payload, authHeaders) =>
+  request('/posts/upload-media/', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify(payload),
+  });
+
 export const deletePost = (postId, authHeaders) =>
   request(`/posts/${postId}/`, {
     method: 'DELETE',

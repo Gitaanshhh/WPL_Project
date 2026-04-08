@@ -1,10 +1,11 @@
 from django.urls import path
 
-from .views import post_detail, post_feed, post_visibility, posts_collection, related_posts, search_all, topics_collection
+from .views import post_detail, post_feed, post_visibility, posts_collection, related_posts, search_all, topics_collection, upload_post_media
 
 urlpatterns = [
     path('topics/', topics_collection, name='topics-collection'),
     path('search/', search_all, name='search-all'),
+    path('posts/upload-media/', upload_post_media, name='post-upload-media'),
     path('posts/', posts_collection, name='posts-collection'),
     path('posts/feed/', post_feed, name='post-feed'),
     path('posts/<int:post_id>/', post_detail, name='post-detail'),

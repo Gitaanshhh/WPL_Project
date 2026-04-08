@@ -14,6 +14,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from .auth import get_allowed_role_switch_targets, get_authenticated_user, get_bearer_token, get_effective_role
 from .emails import send_verification_email, send_password_reset_email, send_welcome_email
 from .models import AuthToken, EmailToken, PlatformUser
+from .storage import normalize_profile_picture_value_for_storage, resolve_profile_picture_url
 
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ def _user_payload(user):
 		'skills': user.get_skills_list(),
 		'links': user.get_links_dict(),
 		'phone_number': user.phone_number,
-		'profile_picture': user.profile_picture,
+		'profile_picture': resolve_profile_picture_url(user.profile_picture),
 		'role': user.role,
 		'is_active': user.is_active,
 		'created_at': user.created_at.isoformat(),
@@ -195,8 +196,7 @@ def _upload_to_supabase_storage(path, raw_bytes, content_type='application/octet
 
 	try:
 		with urllib.request.urlopen(request, timeout=20):
-			public_url = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{bucket}/{path}"
-			return public_url, None
+			return path, None
 	except urllib.error.HTTPError as exc:
 		raw_message = exc.read().decode('utf-8', errors='ignore') or exc.reason or 'Failed to upload profile picture.'
 		return None, JsonResponse({'detail': raw_message}, status=exc.code)
@@ -320,13 +320,19 @@ def upload_profile_picture(request):
 
 	safe_name = ''.join(ch for ch in filename if ch.isalnum() or ch in {'.', '-', '_'}) or 'profile.jpg'
 	path = f"profiles/{actor.id}/{safe_name}"
-	public_url, error_response = _upload_to_supabase_storage(path, raw_bytes, content_type=content_type)
+	stored_path, error_response = _upload_to_supabase_storage(path, raw_bytes, content_type=content_type)
 	if error_response:
 		return error_response
 
-	actor.profile_picture = public_url
+	actor.profile_picture = stored_path
 	actor.save(update_fields=['profile_picture'])
-	return JsonResponse({'detail': 'Profile picture uploaded.', 'profile_picture': public_url})
+	return JsonResponse(
+		{
+			'detail': 'Profile picture uploaded.',
+			'profile_picture_path': stored_path,
+			'profile_picture': resolve_profile_picture_url(stored_path),
+		}
+	)
 
 
 @csrf_exempt
@@ -427,10 +433,16 @@ def user_detail(request, user_id):
 			user.role = PlatformUser.ROLE_GENERAL
 			update_fields.extend(['email', 'email_verified', 'role'])
 
-		for field in ['full_name', 'institution', 'bio', 'tagline', 'phone_number', 'profile_picture']:
+		for field in ['full_name', 'institution', 'bio', 'tagline', 'phone_number']:
 			if field in payload and payload[field] != getattr(user, field):
 				setattr(user, field, payload[field])
 				update_fields.append(field)
+
+		if 'profile_picture' in payload:
+			normalized_profile_picture = normalize_profile_picture_value_for_storage(payload.get('profile_picture'))
+			if normalized_profile_picture != user.profile_picture:
+				user.profile_picture = normalized_profile_picture
+				update_fields.append('profile_picture')
 
 		if 'skills' in payload:
 			if isinstance(payload['skills'], list):

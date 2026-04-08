@@ -37,6 +37,19 @@ const USER_STORAGE_KEY = 'scholr_current_user';
 const THEME_STORAGE_KEY = 'scholr_theme';
 const ALL_ROLES = ['Administrator', 'Developer', 'Moderator', 'Verified User', 'General User'];
 
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const result = String(reader.result || '');
+            const parts = result.split(',');
+            resolve(parts[1] || '');
+        };
+        reader.onerror = () => reject(new Error('Unable to read selected file.'));
+        reader.readAsDataURL(file);
+    });
+}
+
 function getSwitchableRoles(baseRole) {
     if (baseRole === 'Administrator') {
         return ALL_ROLES;
@@ -182,7 +195,7 @@ function App() {
     const [currentUser, setCurrentUser] = useState(null);
     const [posts, setPosts] = useState([]);
     const [topics, setTopics] = useState([]);
-    const [formData, setFormData] = useState({ title: '', topic_id: '', content: '', refs: '' });
+    const [formData, setFormData] = useState({ title: '', topic_id: '', content: '', refs: '', media_files: [] });
     const [rightPanelOpen, setRightPanelOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState({ topics: [], posts: [], users: [] });
@@ -365,18 +378,41 @@ function App() {
         }
 
         try {
+            let mediaItems = [];
+            const mediaFiles = Array.isArray(formData.media_files) ? formData.media_files : [];
+            if (mediaFiles.length > 0) {
+                const filesPayload = await Promise.all(
+                    mediaFiles.map(async (entry) => {
+                        const file = entry?.file || entry;
+                        return {
+                            filename: file.name,
+                            content_type: file.type || 'application/octet-stream',
+                            data_base64: await fileToBase64(file),
+                        };
+                    })
+                );
+
+                const uploadResult = await API.uploadPostMedia({ files: filesPayload }, authHeaders(true));
+                mediaItems = (uploadResult.items || []).map((item) => ({
+                    path: item.path,
+                    kind: item.kind,
+                    content_type: item.content_type,
+                }));
+            }
+
             const data = await API.createPost({
                 title: formData.title,
                 content: formData.content,
                 references: formData.refs,
                 topic_id: formData.topic_id || null,
+                media_items: mediaItems,
             }, authHeaders(true));
 
             setPosts((prev) => [data, ...prev]);
-            setFormData({ title: '', topic_id: '', content: '', refs: '' });
+            setFormData({ title: '', topic_id: '', content: '', refs: '', media_files: [] });
             return true;
         } catch (error) {
-            alert('Unable to publish post.');
+            alert(error?.message || 'Unable to publish post.');
             return false;
         }
     };

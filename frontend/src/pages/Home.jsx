@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Plus, MessageSquare, ThumbsUp, ThumbsDown, Trash2, TrendingUp, Filter, Eye, EyeOff, FolderPlus, ChevronDown, ChevronRight } from 'lucide-react';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import MarkdownContent from '../components/MarkdownContent';
+import PostMediaCarousel from '../components/PostMediaCarousel';
 
 function formatTime(isoTime) {
     if (!isoTime) {
@@ -58,6 +59,7 @@ export default function Home({
     const [postTopicSearch, setPostTopicSearch] = useState('');
     const [isPostTopicPickerOpen, setIsPostTopicPickerOpen] = useState(false);
     const [expandedPostTopicIds, setExpandedPostTopicIds] = useState({});
+    const [draggingMediaIndex, setDraggingMediaIndex] = useState(null);
     const postTopicPickerRef = useRef(null);
 
     const canPost = role !== 'General User';
@@ -229,6 +231,60 @@ export default function Home({
     const clearPostTopicSelection = () => {
         setFormData({ ...formData, topic_id: '' });
         setPostTopicSearch('');
+    };
+
+    const selectedMediaFiles = Array.isArray(formData.media_files) ? formData.media_files : [];
+
+    useEffect(() => {
+        return () => {
+            selectedMediaFiles.forEach((item) => {
+                if (item?.preview_url) {
+                    URL.revokeObjectURL(item.preview_url);
+                }
+            });
+        };
+    }, []);
+
+    const handleMediaSelection = (event) => {
+        const files = Array.from(event.target.files || []);
+        const existing = selectedMediaFiles.slice();
+        const mapped = files.map((file, index) => ({
+            id: `${Date.now()}-${index}-${file.name}`,
+            file,
+            preview_url: URL.createObjectURL(file),
+        }));
+        const next = [...existing, ...mapped].slice(0, 8);
+        setFormData({ ...formData, media_files: next });
+        event.target.value = '';
+    };
+
+    const removeMediaFile = (indexToRemove) => {
+        const target = selectedMediaFiles[indexToRemove];
+        if (target?.preview_url) {
+            URL.revokeObjectURL(target.preview_url);
+        }
+        setFormData({
+            ...formData,
+            media_files: selectedMediaFiles.filter((_, index) => index !== indexToRemove),
+        });
+    };
+
+    const handleDragStartMedia = (index) => {
+        setDraggingMediaIndex(index);
+    };
+
+    const handleDropMedia = (targetIndex) => {
+        if (draggingMediaIndex == null || draggingMediaIndex === targetIndex) {
+            setDraggingMediaIndex(null);
+            return;
+        }
+
+        const reordered = selectedMediaFiles.slice();
+        const [dragged] = reordered.splice(draggingMediaIndex, 1);
+        reordered.splice(targetIndex, 0, dragged);
+
+        setFormData({ ...formData, media_files: reordered });
+        setDraggingMediaIndex(null);
     };
 
     const renderPostTopicNode = (node) => {
@@ -481,6 +537,80 @@ export default function Home({
                             />
                         </div>
 
+                        <div>
+                            <label className="block text-sm font-medium text-academic-700 mb-1">Images or videos (optional, up to 8)</label>
+                            <input
+                                type="file"
+                                accept="image/*,video/*"
+                                multiple
+                                onChange={handleMediaSelection}
+                                className="input"
+                            />
+                            {selectedMediaFiles.length > 0 && (
+                                <>
+                                    <p className="mt-2 text-xs text-academic-500">Drag thumbnails to reorder. The first item is shown by default on the post card.</p>
+                                    <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        {selectedMediaFiles.map((item, index) => {
+                                            const file = item.file || item;
+                                            const isVideo = (file.type || '').startsWith('video/');
+
+                                            return (
+                                                <div
+                                                    key={item.id || `${file.name}-${index}`}
+                                                    draggable
+                                                    onDragStart={() => handleDragStartMedia(index)}
+                                                    onDragOver={(event) => event.preventDefault()}
+                                                    onDrop={() => handleDropMedia(index)}
+                                                    className={`group rounded-lg border bg-white p-2 ${draggingMediaIndex === index ? 'border-primary-400' : 'border-academic-200'}`}
+                                                >
+                                                    <div className="relative mb-2 h-24 overflow-hidden rounded-md bg-academic-100">
+                                                        {isVideo ? (
+                                                            <video
+                                                                src={item.preview_url}
+                                                                className="h-full w-full object-cover"
+                                                                muted
+                                                            />
+                                                        ) : (
+                                                            <img
+                                                                src={item.preview_url}
+                                                                alt={file.name}
+                                                                className="h-full w-full object-cover"
+                                                            />
+                                                        )}
+                                                        {index === 0 && (
+                                                            <span className="absolute left-1 top-1 rounded bg-primary-600 px-1.5 py-0.5 text-[10px] font-medium text-white">Visible first</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[11px] text-academic-700 truncate" title={file.name}>{file.name}</div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeMediaFile(index)}
+                                                        className="mt-1 text-[11px] text-red-600 hover:text-red-700"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="mt-2 space-y-1">
+                                        {selectedMediaFiles.map((item, index) => (
+                                            <div key={`name-${item.id || index}`} className="flex items-center justify-between rounded-md border border-academic-200 bg-academic-50 px-3 py-1.5 text-xs text-academic-700">
+                                                <span className="truncate pr-3">{index + 1}. {(item.file || item).name}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeMediaFile(index)}
+                                                className="text-red-600 hover:text-red-700"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
                         <div className="flex justify-end space-x-3">
                             <button type="button" onClick={() => setShowPostForm(false)} className="btn btn-outline">
                                 Cancel
@@ -560,6 +690,10 @@ export default function Home({
                                         >
                                             {post.title}
                                         </Link>
+                                    )}
+
+                                    {Array.isArray(post.media_items) && post.media_items.length > 0 && (
+                                        <PostMediaCarousel items={post.media_items} maxHeightClass="h-56 sm:h-64" />
                                     )}
 
                                     {post.content && (

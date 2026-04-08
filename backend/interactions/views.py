@@ -6,6 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from accounts.auth import get_authenticated_user, get_effective_role, parse_json_body
 from accounts.models import PlatformUser
+from accounts.storage import resolve_profile_picture_url
 from posts.models import Post
 
 from .models import Comment, CommentVote, Conversation, ConversationMember, Message, Report, Vote
@@ -316,7 +317,15 @@ def chat_users(request):
     users = PlatformUser.objects.filter(is_active=True).exclude(id=actor.id).values(
         'id', 'username', 'full_name', 'profile_picture'
     )
-    return JsonResponse({'results': list(users)})
+    results = []
+    for user in users:
+        results.append(
+            {
+                **user,
+                'profile_picture': resolve_profile_picture_url(user.get('profile_picture')),
+            }
+        )
+    return JsonResponse({'results': results})
 
 
 
@@ -357,7 +366,7 @@ def _convo_payload(convo, actor):
                 'id': other.id,
                 'username': other.username,
                 'full_name': other.full_name,
-                'profile_picture': other.profile_picture,
+                'profile_picture': resolve_profile_picture_url(other.profile_picture),
             }
     else:
         result['members'] = [
@@ -365,7 +374,7 @@ def _convo_payload(convo, actor):
                 'id': m.user.id,
                 'username': m.user.username,
                 'full_name': m.user.full_name,
-                'profile_picture': m.user.profile_picture,
+                'profile_picture': resolve_profile_picture_url(m.user.profile_picture),
             }
             for m in members
         ]
@@ -516,7 +525,7 @@ def conversation_messages(request, convo_id):
                 'id': msg.id,
                 'sender_id': msg.sender_id,
                 'sender_username': msg.sender.username,
-                'sender_picture': msg.sender.profile_picture,
+                'sender_picture': resolve_profile_picture_url(msg.sender.profile_picture),
                 'content': msg.content,
                 'created_at': msg.created_at.isoformat(),
             }
@@ -543,7 +552,7 @@ def conversation_messages(request, convo_id):
             'id': msg.id,
             'sender_id': msg.sender_id,
             'sender_username': actor.username,
-            'sender_picture': actor.profile_picture,
+            'sender_picture': resolve_profile_picture_url(actor.profile_picture),
             'content': msg.content,
             'created_at': msg.created_at.isoformat(),
         }, status=201)

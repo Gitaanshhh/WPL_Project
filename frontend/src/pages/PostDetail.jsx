@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Calendar, FileText, Flag, ThumbsDown, ThumbsUp, Trash2, User } from 'lucide-react';
 import * as API from '../api';
 import MarkdownContent from '../components/MarkdownContent';
+import PostMediaCarousel from '../components/PostMediaCarousel';
 
 function formatDateTime(isoTime) {
     if (!isoTime) {
@@ -208,6 +209,11 @@ export default function PostDetail({ posts, currentUser, onVote, onCommentVote }
                     </div>
 
                     <div className="prose prose-lg max-w-none">
+                        {Array.isArray(post.media_items) && post.media_items.length > 0 && (
+                            <div className="mb-6 not-prose">
+                                <PostMediaCarousel items={post.media_items} maxHeightClass="h-72 sm:h-96" />
+                            </div>
+                        )}
                         <MarkdownContent content={post.content || ''} className="text-academic-800 leading-relaxed" />
                     </div>
 

@@ -1,3 +1,11 @@
+import base64
+import json
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+from django.conf import settings
 from django.db.models import IntegerField, Q, Sum
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
@@ -7,9 +15,156 @@ from django.utils.dateparse import parse_datetime
 
 from accounts.auth import get_authenticated_user, get_effective_role, parse_json_body
 from accounts.models import PlatformUser
+from accounts.storage import resolve_profile_picture_url
 from interactions.models import Vote
 
 from .models import Post, Topic
+
+
+MAX_POST_MEDIA_FILES = 8
+MAX_POST_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_POST_VIDEO_BYTES = 50 * 1024 * 1024
+
+
+def _sanitize_filename(filename, fallback='file.bin'):
+	safe_name = ''.join(ch for ch in (filename or '') if ch.isalnum() or ch in {'.', '-', '_'})
+	return safe_name or fallback
+
+
+def _get_supabase_media_bucket():
+	return getattr(settings, 'SUPABASE_POST_MEDIA_BUCKET', 'profile-pictures')
+
+
+def _get_signed_url_ttl_seconds():
+	raw = getattr(settings, 'SUPABASE_SIGNED_URL_TTL_SECONDS', 300)
+	try:
+		return max(30, min(int(raw), 3600))
+	except (TypeError, ValueError):
+		return 300
+
+
+def _upload_media_to_supabase(path, raw_bytes, content_type='application/octet-stream'):
+	service_role_key = settings.SUPABASE_SERVICE_ROLE_KEY
+	if not service_role_key:
+		return None, JsonResponse({'detail': 'SUPABASE_SERVICE_ROLE_KEY is required for media uploads.'}, status=500)
+
+	bucket = _get_supabase_media_bucket()
+	upload_url = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/{bucket}/{path}"
+	request = urllib.request.Request(
+		upload_url,
+		method='POST',
+		data=raw_bytes,
+		headers={
+			'apikey': service_role_key,
+			'authorization': f'Bearer {service_role_key}',
+			'content-type': content_type,
+			'x-upsert': 'false',
+		},
+	)
+
+	try:
+		with urllib.request.urlopen(request, timeout=30):
+			return path, None
+	except urllib.error.HTTPError as exc:
+		raw_message = exc.read().decode('utf-8', errors='ignore') or exc.reason or 'Failed to upload media.'
+		return None, JsonResponse({'detail': raw_message}, status=exc.code)
+	except urllib.error.URLError as exc:
+		return None, JsonResponse({'detail': f'Failed to reach Supabase storage: {exc.reason}'}, status=502)
+
+
+def _create_supabase_signed_url(path, expires_in=None):
+	service_role_key = settings.SUPABASE_SERVICE_ROLE_KEY
+	if not service_role_key:
+		return None, JsonResponse({'detail': 'SUPABASE_SERVICE_ROLE_KEY is required for signed URLs.'}, status=500)
+
+	bucket = _get_supabase_media_bucket()
+	ttl_seconds = expires_in or _get_signed_url_ttl_seconds()
+	encoded_path = urllib.parse.quote(path, safe='/')
+	sign_url = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/sign/{bucket}/{encoded_path}"
+	body = json.dumps({'expiresIn': ttl_seconds}).encode('utf-8')
+	request = urllib.request.Request(
+		sign_url,
+		method='POST',
+		data=body,
+		headers={
+			'apikey': service_role_key,
+			'authorization': f'Bearer {service_role_key}',
+			'content-type': 'application/json',
+		},
+	)
+
+	try:
+		with urllib.request.urlopen(request, timeout=20) as response:
+			payload = json.loads(response.read().decode('utf-8') or '{}')
+			signed_url = payload.get('signedURL') or payload.get('signedUrl')
+			if not signed_url:
+				return None, JsonResponse({'detail': 'Supabase did not return a signed URL.'}, status=502)
+			if signed_url.startswith('http://') or signed_url.startswith('https://'):
+				return signed_url, None
+			return f"{settings.SUPABASE_URL.rstrip('/')}{signed_url}", None
+	except urllib.error.HTTPError as exc:
+		raw_message = exc.read().decode('utf-8', errors='ignore') or exc.reason or 'Failed to create signed URL.'
+		return None, JsonResponse({'detail': raw_message}, status=exc.code)
+	except urllib.error.URLError as exc:
+		return None, JsonResponse({'detail': f'Failed to reach Supabase storage: {exc.reason}'}, status=502)
+
+
+def _normalize_media_items(media_items, author_id):
+	if media_items in (None, ''):
+		return [], None
+
+	if not isinstance(media_items, list):
+		return None, JsonResponse({'detail': 'media_items must be a list.'}, status=400)
+
+	if len(media_items) > MAX_POST_MEDIA_FILES:
+		return None, JsonResponse({'detail': f'You can attach up to {MAX_POST_MEDIA_FILES} files per post.'}, status=400)
+
+	prefix = f'posts/{author_id}/'
+	normalized = []
+	for item in media_items:
+		if not isinstance(item, dict):
+			return None, JsonResponse({'detail': 'Each media item must be an object.'}, status=400)
+
+		path = (item.get('path') or '').strip()
+		kind = (item.get('kind') or '').strip().lower()
+		content_type = (item.get('content_type') or '').strip().lower()
+
+		if not path:
+			return None, JsonResponse({'detail': 'Each media item requires a path.'}, status=400)
+		if not path.startswith(prefix):
+			return None, JsonResponse({'detail': 'Media path is not allowed for this user.'}, status=403)
+		if kind not in {'image', 'video'}:
+			return None, JsonResponse({'detail': 'Media kind must be image or video.'}, status=400)
+		if len(content_type) > 120:
+			return None, JsonResponse({'detail': 'Invalid media content_type.'}, status=400)
+
+		normalized.append(
+			{
+				'path': path,
+				'kind': kind,
+				'content_type': content_type,
+			}
+		)
+
+	return normalized, None
+
+
+def _with_signed_urls(media_items):
+	resolved = []
+	for item in media_items or []:
+		path = item.get('path')
+		if not path:
+			continue
+		signed_url, _ = _create_supabase_signed_url(path)
+		resolved.append(
+			{
+				'path': path,
+				'kind': item.get('kind') or 'image',
+				'content_type': item.get('content_type') or '',
+				'signed_url': signed_url,
+			}
+		)
+	return resolved
 
 
 def _post_to_dict(post, user_votes_by_post_id=None, vote_scores_by_post_id=None):
@@ -22,6 +177,8 @@ def _post_to_dict(post, user_votes_by_post_id=None, vote_scores_by_post_id=None)
 	if vote_scores_by_post_id and post.id in vote_scores_by_post_id:
 		score = vote_scores_by_post_id[post.id] or 0
 
+	media_items = post.media_items if isinstance(post.media_items, list) else []
+
 	return {
 		'id': post.id,
 		'title': post.title,
@@ -32,6 +189,7 @@ def _post_to_dict(post, user_votes_by_post_id=None, vote_scores_by_post_id=None)
 		'topic': post.topic.name if post.topic else None,
 		'topic_id': post.topic_id,
 		'is_hidden': post.is_hidden,
+		'media_items': _with_signed_urls(media_items),
 		'score': score,
 		'user_vote': user_vote,
 		'created_at': post.created_at.isoformat(),
@@ -170,7 +328,7 @@ def search_all(request):
 					'id': u.id,
 					'username': u.username,
 					'full_name': u.full_name,
-					'profile_picture': u.profile_picture,
+					'profile_picture': resolve_profile_picture_url(u.profile_picture),
 				}
 				for u in users
 			],
@@ -323,12 +481,17 @@ def posts_collection(request):
 		if topic_id:
 			topic = Topic.objects.filter(id=topic_id).first()
 
+		media_items, media_error = _normalize_media_items(payload.get('media_items', []), author.id)
+		if media_error:
+			return media_error
+
 		post = Post.objects.create(
 			author=author,
 			topic=topic,
 			title=payload['title'],
 			content=payload['content'],
 			references=payload.get('references', ''),
+			media_items=media_items,
 		)
 		# Refresh from DB to get related data
 		post.refresh_from_db()
@@ -336,6 +499,75 @@ def posts_collection(request):
 		return JsonResponse(_post_to_dict(post, user_votes_by_post_id={}, vote_scores_by_post_id={}), status=201)
 
 	return JsonResponse({'detail': 'Method not allowed.'}, status=405)
+
+
+@csrf_exempt
+def upload_post_media(request):
+	if request.method != 'POST':
+		return JsonResponse({'detail': 'Method not allowed.'}, status=405)
+
+	actor = get_authenticated_user(request)
+	if not actor:
+		return JsonResponse({'detail': 'Authentication required.'}, status=401)
+
+	actor_role = get_effective_role(request, actor)
+	if not _is_privileged_role(actor_role):
+		return JsonResponse({'detail': 'Your role is read-only and cannot upload post media.'}, status=403)
+
+	payload = parse_json_body(request)
+	if payload is None:
+		return JsonResponse({'detail': 'Invalid JSON payload.'}, status=400)
+
+	files = payload.get('files')
+	if not isinstance(files, list) or not files:
+		return JsonResponse({'detail': 'files must be a non-empty list.'}, status=400)
+	if len(files) > MAX_POST_MEDIA_FILES:
+		return JsonResponse({'detail': f'You can upload up to {MAX_POST_MEDIA_FILES} files at once.'}, status=400)
+
+	uploaded_items = []
+	for index, entry in enumerate(files):
+		if not isinstance(entry, dict):
+			return JsonResponse({'detail': 'Each file payload must be an object.'}, status=400)
+
+		data_b64 = (entry.get('data_base64') or '').strip()
+		filename = _sanitize_filename(entry.get('filename') or f'file-{index + 1}.bin')
+		content_type = (entry.get('content_type') or 'application/octet-stream').strip().lower()
+
+		if not data_b64:
+			return JsonResponse({'detail': f'data_base64 is required for file #{index + 1}.'}, status=400)
+
+		try:
+			raw_bytes = base64.b64decode(data_b64)
+		except Exception:
+			return JsonResponse({'detail': f'Invalid base64 payload for file #{index + 1}.'}, status=400)
+
+		if content_type.startswith('image/'):
+			kind = 'image'
+			if len(raw_bytes) > MAX_POST_IMAGE_BYTES:
+				return JsonResponse({'detail': 'Each image must be 10MB or smaller.'}, status=400)
+		elif content_type.startswith('video/'):
+			kind = 'video'
+			if len(raw_bytes) > MAX_POST_VIDEO_BYTES:
+				return JsonResponse({'detail': 'Each video must be 50MB or smaller.'}, status=400)
+		else:
+			return JsonResponse({'detail': 'Only image/* and video/* files are allowed.'}, status=400)
+
+		path = f"posts/{actor.id}/{int(time.time() * 1000)}-{index}-{filename}"
+		uploaded_path, upload_error = _upload_media_to_supabase(path, raw_bytes, content_type=content_type)
+		if upload_error:
+			return upload_error
+
+		signed_url, _ = _create_supabase_signed_url(uploaded_path)
+		uploaded_items.append(
+			{
+				'path': uploaded_path,
+				'kind': kind,
+				'content_type': content_type,
+				'signed_url': signed_url,
+			}
+		)
+
+	return JsonResponse({'items': uploaded_items}, status=201)
 
 
 @csrf_exempt
@@ -504,6 +736,12 @@ def post_detail(request, post_id):
 
 		if 'topic_id' in payload:
 			post.topic = Topic.objects.filter(id=payload['topic_id']).first()
+
+		if 'media_items' in payload:
+			media_items, media_error = _normalize_media_items(payload.get('media_items'), post.author_id)
+			if media_error:
+				return media_error
+			post.media_items = media_items
 
 		post.save()
 		post.refresh_from_db()

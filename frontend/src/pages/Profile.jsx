@@ -156,12 +156,7 @@ export default function Profile({ currentUser, posts, onUserUpdate }) {
                 }
             );
 
-            const updatedUser = await API.updateUser(currentUser.id, { profile_picture: uploadResult.profile_picture }, {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${currentUser.token}`,
-            });
-
-            onUserUpdate({ ...currentUser, ...updatedUser });
+            onUserUpdate({ ...currentUser, profile_picture: uploadResult.profile_picture });
             setProfilePictureFile(null);
             setMessage('Profile picture updated.');
         } catch (error) {
