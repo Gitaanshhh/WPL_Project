@@ -2,7 +2,7 @@ import json
 from datetime import timedelta
 
 from django.db.models import Count, Q
-from django.db.models.functions import TruncDate, TruncMonth, TruncWeek
+from django.db.models.functions import TruncDate, TruncHour
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -14,22 +14,29 @@ from .models import Event
 from .tracking import track_event
 
 
-def _window_start(range_value):
-    now = timezone.now()
+def _period_start(range_value):
+    now = timezone.localtime(timezone.now())
+
     if range_value == 'daily':
-        return now - timedelta(days=30)
+        return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
     if range_value == 'weekly':
-        return now - timedelta(weeks=26)
-    return now - timedelta(days=365)
+        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        return start_of_day - timedelta(days=start_of_day.weekday())
+
+    if range_value == 'monthly':
+        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    return None
 
 
 def _range_config(range_value):
     if range_value == 'daily':
-        return TruncDate, _window_start('daily')
+        return TruncHour, _period_start('daily')
     if range_value == 'weekly':
-        return TruncWeek, _window_start('weekly')
+        return TruncDate, _period_start('weekly')
     if range_value == 'monthly':
-        return TruncMonth, _window_start('monthly')
+        return TruncDate, _period_start('monthly')
     return None, None
 
 

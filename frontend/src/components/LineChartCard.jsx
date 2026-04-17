@@ -1,9 +1,9 @@
 import React from 'react';
 import {
+    Bar,
+    BarChart,
     CartesianGrid,
     Legend,
-    Line,
-    LineChart,
     ResponsiveContainer,
     Tooltip,
     XAxis,
@@ -17,12 +17,23 @@ const RANGE_OPTIONS = [
 ];
 
 const SERIES = [
-    { dataKey: 'visits', stroke: '#0ea5e9', name: 'Visits' },
-    { dataKey: 'logins', stroke: '#10b981', name: 'Logins' },
-    { dataKey: 'posts', stroke: '#f59e0b', name: 'Claims Posted' },
-    { dataKey: 'votes', stroke: '#f43f5e', name: 'Votes' },
-    { dataKey: 'evidence_reviews', stroke: '#8b5cf6', name: 'Evidence Reviews' },
+    { dataKey: 'visits', fill: '#0ea5e9', name: 'Visits' },
+    { dataKey: 'logins', fill: '#10b981', name: 'Logins' },
+    { dataKey: 'posts', fill: '#f59e0b', name: 'Claims Posted' },
+    { dataKey: 'votes', fill: '#f43f5e', name: 'Votes' },
+    { dataKey: 'evidence_reviews', fill: '#8b5cf6', name: 'Evidence Reviews' },
 ];
+
+function formatXAxisLabel(value, range) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+
+    if (range === 'daily') {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
 
 export default function LineChartCard({ data, range, onRangeChange }) {
     return (
@@ -51,28 +62,33 @@ export default function LineChartCard({ data, range, onRangeChange }) {
 
             <div className="mt-5 h-90">
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+                    <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.25)" />
-                        <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 12 }} tickLine={false} axisLine={false} />
+                        <XAxis
+                            dataKey="date"
+                            tick={{ fill: '#64748b', fontSize: 12 }}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(value) => formatXAxisLabel(value, range)}
+                        />
                         <YAxis allowDecimals={false} tick={{ fill: '#64748b', fontSize: 12 }} tickLine={false} axisLine={false} />
                         <Tooltip
                             contentStyle={{ borderRadius: 12, border: '1px solid rgba(148, 163, 184, 0.3)' }}
                             labelStyle={{ fontWeight: 600 }}
+                            labelFormatter={(value) => formatXAxisLabel(value, range)}
                         />
                         <Legend />
-                        {SERIES.map((line) => (
-                            <Line
-                                key={line.dataKey}
-                                type="monotone"
-                                dataKey={line.dataKey}
-                                stroke={line.stroke}
-                                strokeWidth={2.5}
-                                dot={false}
-                                activeDot={{ r: 4 }}
-                                name={line.name}
+                        {SERIES.map((bar) => (
+                            <Bar
+                                key={bar.dataKey}
+                                dataKey={bar.dataKey}
+                                fill={bar.fill}
+                                name={bar.name}
+                                radius={[4, 4, 0, 0]}
+                                maxBarSize={24}
                             />
                         ))}
-                    </LineChart>
+                    </BarChart>
                 </ResponsiveContainer>
             </div>
         </section>
