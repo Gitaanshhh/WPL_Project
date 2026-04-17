@@ -69,7 +69,7 @@ We're building an alternative to dopamine-driven feeds: a place where every clai
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19, Vite 7, Tailwind CSS 4, React Router 7 |
+| Frontend | React 19, Vite 7, Tailwind CSS 4, React Router 7, Recharts |
 | Backend | Django 4.2, Django REST Framework |
 | Authentication | Custom token auth + Supabase OAuth (Google, LinkedIn) |
 | Database | PostgreSQL (production), SQLite (local dev) |
@@ -115,6 +115,13 @@ We're building an alternative to dopamine-driven feeds: a place where every clai
 - Related discussions sidebar (similar claims, open problems, replications)
 - Message researchers directly for collaboration opportunity
 
+### **Admin Analytics**
+- Admin-only analytics dashboard at `/analytics`
+- Live tracking for page visits, logins, claim creation, votes, and evidence reviews
+- Historical login sessions backfilled from existing auth token history
+- Time-series charts with daily, weekly, and monthly views
+- All-time visit counts and unique login-user counts shown in the dashboard
+
 ---
 
 ## 👥 **Role-Based Access**
@@ -130,6 +137,7 @@ We're building an alternative to dopamine-driven feeds: a place where every clai
 | **Manage topics** | ❌ | ❌ | ❌ | ✅ | ✅ |
 | **Ban users** | ❌ | ❌ | ✅ | ✅ | ✅ |
 | **System config** | ❌ | ❌ | ❌ | ✅ | ✅ |
+| **View analytics dashboard** | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 **What triggers "Verified User"?**
 - Verify your institutional email (optional: connect profile to ORCID)
@@ -258,6 +266,19 @@ If you are developing locally without OAuth, you can leave the Supabase variable
 ---
 
 ## 🔌 **Key API Endpoints**
+
+### **Analytics**
+- `GET /api/analytics/?range=daily|weekly|monthly` - time-series visits, logins, claims, votes, evidence reviews
+- `GET /api/analytics/summary/?range=daily|weekly|monthly` - totals, thinking score, all-time visits, login history
+- `GET /api/analytics/contributors/?range=daily|weekly|monthly` - top contributors by activity
+- `POST /api/analytics/track-visit/` - records a page visit event
+
+### **Tracking Behavior**
+- Login events are recorded on successful password and OAuth sign-in
+- Claim creation records a `post_created` event
+- Votes record a `vote` event
+- Comment evidence reviews record an `evidence_review` event
+- Frontend route changes record visit events so the dashboard updates as people browse
 
 ### **Claim Management**
 | Method | Endpoint | Purpose |

@@ -16,6 +16,7 @@ Product mission context: Scholr is intentionally anti-brain-rot. The product sho
 - **[Frontend](./FRONTEND.md)** — Component hierarchy, state management, styling approach
 - **[Database Schema](./DATABASE.md)** — Full ERD, indices, constraints, migrations
 - **[Filtering & Sorting](./FILTERING_API.md)** — Query optimization, pagination, search
+- **[Admin Analytics](#-admin-analytics)** — Admin-only metrics, live tracking, historical backfill
 - **[Performance Guide](./OPTIMIZATION.md)** — Backend caching, frontend code-splitting, infrastructure tuning
 
 ---
@@ -75,6 +76,19 @@ Direct messaging + topic rooms for research teams.
 - **Status**: pending, resolved, rejected
 - **Resolution**: moderator decision + notes
 
+### **Analytics Event Stream**
+- **Event types**: visit, login, post_created, vote, evidence_review
+- **Timestamp**: when the action happened
+- **Metadata**: optional JSON for route, login method, token id, and other context
+
+### **Admin Analytics**
+- **Access**: admin-only
+- **Purpose**: show real scholarly activity, not vanity metrics
+- **Metrics**: all-time visits, login sessions, unique login users, claims posted, votes, evidence reviews, thinking score
+- **Time windows**: daily, weekly, monthly
+- **Tracking**: frontend route visits, successful password/OAuth logins, claim creation, votes, evidence reviews
+- **Historical backfill**: existing auth tokens are backfilled into login events so past account activity is included
+
 ---
 
 ## 🔐 **Authentication & Authorization**
@@ -101,6 +115,18 @@ All subsequent requests include Bearer token
 Backend validates token signature & expiry
 ```
 
+### **Analytics API**
+```
+GET /api/analytics/?range=daily|weekly|monthly
+GET /api/analytics/summary/?range=daily|weekly|monthly
+GET /api/analytics/contributors/?range=daily|weekly|monthly
+POST /api/analytics/track-visit/
+```
+
+- Read endpoints are admin-only.
+- `summary/` includes all-time visits, login history, and unique login users.
+- `track-visit/` records page visits immediately when the frontend route changes.
+
 ---
 
 ## 🚀 **Project Structure**
@@ -115,6 +141,12 @@ WPL_Project/
 │   │   ├── emails.py          # Verification & password reset emails
 │   │   ├── urls.py
 │   │   └── migrations/        # Database schema changes
+│   │
+│   ├── analytics/
+│   │   ├── models.py          # Event stream for visits, logins, claims, votes
+│   │   ├── views.py           # Analytics APIs, admin checks, visit tracking
+│   │   ├── tracking.py        # Event helper used by auth/post/vote flows
+│   │   └── migrations/
 │   │
 │   ├── posts/
 │   │   ├── models.py          # Post, Topic
@@ -145,6 +177,7 @@ WPL_Project/
 │   │   ├── pages/
 │   │   │   ├── Home.jsx               # Claim feed, filtering, new claim form
 │   │   │   ├── PostDetail.jsx         # Claim detail, comments, voting
+│   │   │   ├── Analytics.jsx          # Admin-only metrics dashboard
 │   │   │   ├── PublicProfile.jsx      # Researcher profile + rep score
 │   │   │   ├── ModerationReports.jsx  # Moderation dashboard
 │   │   │   ├── Messages.jsx           # Messaging page
