@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
     Sparkles,
     User as UserIcon,
@@ -632,8 +632,7 @@ function App() {
     }, {});
 
     return (
-        <Router>
-            <div className="min-h-screen bg-academic-50">
+        <div className="min-h-screen bg-academic-50">
                 <header className="sticky top-0 z-50 bg-white border-b border-academic-200 backdrop-blur-lg bg-opacity-90">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex items-center justify-between h-16">
@@ -971,7 +970,6 @@ function App() {
                     </nav>
                 )}
             </div>
-        </Router>
     );
 }
 
